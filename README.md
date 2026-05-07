@@ -67,17 +67,15 @@ Read [docs/architecture.md](docs/architecture.md) for details.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Contributors
-
-[![Contributors](https://img.shields.io/github/contributors/zosmaai/pi-llm-wiki)](https://github.com/zosmaai/pi-llm-wiki/graphs/contributors)
-
-Thanks [arjun-zosma](https://github.com/arjun-zosma) and [jfraser](https://github.com/jfraser)!
-
-## Stargazers
+## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=zosmaai/pi-llm-wiki&type=Date)](https://star-history.com/#zosmaai/pi-llm-wiki&Date)
 
-If you find this project useful, please give it a star on GitHub!
+## Contributors
+
+<a href="https://github.com/zosmaai/pi-llm-wiki/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=zosmaai/pi-llm-wiki" alt="Contributors" />
+</a>
 
 ---
 
