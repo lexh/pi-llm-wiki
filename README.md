@@ -80,6 +80,14 @@ Thanks to everyone who has contributed to this project:
   <tbody>
     <tr>
       <td align="center" valign="top" width="14.28%">
+        <a href="https://github.com/zosmaai">
+          <img src="https://avatars.githubusercontent.com/u/107189904?v=4" width="80" alt="zosmaai">
+          <br /><sub><b>Arjun Nayak</b></sub>
+        </a>
+        <br />
+        <a href="https://github.com/zosmaai/pi-llm-wiki/commits?author=zosmaai" title="Code & maintenance">💻</a>
+      </td>
+      <td align="center" valign="top" width="14.28%">
         <a href="https://github.com/jfraser">
           <img src="https://avatars.githubusercontent.com/u/165964?v=4" width="80" alt="jfraser">
           <br /><sub><b>James Fraser</b></sub>
@@ -96,7 +104,7 @@ Thanks to everyone who has contributed to this project:
 
 ## Stargazers
 
-[![Stars](https://img.shields.io/github/stars/zosmaai/pi-llm-wiki?style=social)](https://github.com/zosmaai/pi-llm-wiki/stargazers)
+[![Star History Chart](https://api.star-history.com/svg?repos=zosmaai/pi-llm-wiki&type=Date)](https://star-history.com/#zosmaai/pi-llm-wiki&Date)
 
 If you find this project useful, please give it a star on GitHub!
 
