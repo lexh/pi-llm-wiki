@@ -71,36 +71,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 [![Contributors](https://img.shields.io/github/contributors/zosmaai/pi-llm-wiki)](https://github.com/zosmaai/pi-llm-wiki/graphs/contributors)
 
-Thanks to everyone who has contributed to this project:
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="top" width="14.28%">
-        <a href="https://github.com/zosmaai">
-          <img src="https://avatars.githubusercontent.com/u/107189904?v=4" width="80" alt="zosmaai">
-          <br /><sub><b>Arjun Nayak</b></sub>
-        </a>
-        <br />
-        <a href="https://github.com/zosmaai/pi-llm-wiki/commits?author=zosmaai" title="Code & maintenance">💻</a>
-      </td>
-      <td align="center" valign="top" width="14.28%">
-        <a href="https://github.com/jfraser">
-          <img src="https://avatars.githubusercontent.com/u/165964?v=4" width="80" alt="jfraser">
-          <br /><sub><b>James Fraser</b></sub>
-        </a>
-        <br />
-        <a href="https://github.com/zosmaai/pi-llm-wiki/issues?q=author%3Ajfraser" title="Bug reports & PRs">🐛</a>
-      </td>
-    </tr>
-  </tbody>
-</table>
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-<!-- ALL-CONTRIBUTORS-LIST:END -->
+Thanks [arjun-zosma](https://github.com/arjun-zosma) and [jfraser](https://github.com/jfraser)!
 
 ## Stargazers
 
