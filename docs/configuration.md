@@ -23,6 +23,12 @@ Wiki configuration lives in `.wiki/config.json`.
 | `auto_fix_lint`            | false   | Auto-fix lint issues               |
 | `batch_ingest_size`        | 3       | Sources processed per ingest batch |
 
+## Environment Variables
+
+| Variable                      | Default | Description                                     |
+| ----------------------------- | ------- | ----------------------------------------------- |
+| `WIKI_MARKITDOWN_TIMEOUT_MS` | 180000  | Timeout (ms) for MarkItDown PDF/text extraction |
+
 ## Page Frontmatter
 
 ```yaml

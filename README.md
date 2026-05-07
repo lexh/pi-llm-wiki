@@ -42,6 +42,14 @@ Drop sources into `raw/`, then:
 | `wiki_log_event`      | Record custom event                           |
 | `wiki_watch`          | Schedule auto-updates                         |
 
+## Features
+
+- **Configurable PDF extraction** — MarkItDown timeout adjustable via `WIKI_MARKITDOWN_TIMEOUT_MS` env var
+- **Smart content detection** — PDF bytes sniffed even from non-`.pdf` URLs, never written as markdown
+- **Original artifacts preserved** — URL captures save the fetched payload under `original/source.*`
+- **Clickable source links** — Captured URLs render as clickable Markdown links in source pages
+- **Reliable prompt forwarding** — Slash commands properly forward user arguments to the model
+
 ## Architecture
 
 Four layers with clear ownership:
