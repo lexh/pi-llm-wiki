@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-11
+
+### Added
+- **Overhauled README**: npm downloads badge, slash commands table, guardrails section, skill behavior, vault layout, source packet format, integration flow, linking style guide
+- **Better npm discoverability**: 19 keywords (was 10), expanded description with search terms, `files` field to slim package
+- **GitHub topics**: pi, llm-wiki, knowledge-base, wiki, markdown, obsidian, karpathy, second-brain, pkm, memory
+
+## [0.4.0] - 2026-05-11
+
+- JSON file support (PR #15 by jfraser)
+- Extractor strategy pattern refactor
+
+## [0.3.0] - 2026-05-07
+
+- Release
+
+## [0.2.2] - 2026-05-03
+
+- Fix: CodeQL alerts for safe tag stripping and entity decoding
+- Fix: README contributors via contrib.rocks
+- Added: Features section and env var documentation
+
+## [0.2.1] - 2026-04-29
+
+- Minor fixes
+
 ## [0.2.0] - 2026-04-28
 
 ### Added

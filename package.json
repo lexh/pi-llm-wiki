@@ -1,17 +1,26 @@
 {
   "name": "@zosmaai/pi-llm-wiki",
-  "version": "0.4.0",
-  "description": "LLM Wiki for Pi — self-maintaining knowledge base following Karpathy's pattern. Obsidian-friendly, auto-updating, personal & company wiki.",
+  "version": "0.5.0",
+  "description": "Self-maintaining LLM Wiki for Pi — Karpathy-pattern knowledge base with immutable source capture, automated ingestion, search, linting, and Obsidian-compatible vault. auto-updating personal & company wiki.",
   "keywords": [
+    "pi",
     "pi-package",
-    "pi-skill",
     "pi-extension",
+    "pi-skill",
     "llm-wiki",
     "karpathy",
     "knowledge-base",
     "obsidian",
     "second-brain",
     "wiki",
+    "memory",
+    "markdown",
+    "pkm",
+    "personal-knowledge-management",
+    "research",
+    "vault",
+    "zettelkasten",
+    "rag",
     "zosmaai"
   ],
   "license": "MIT",
@@ -24,6 +33,19 @@
     "url": "https://github.com/zosmaai/pi-llm-wiki/issues"
   },
   "homepage": "https://github.com/zosmaai/pi-llm-wiki#readme",
+  "files": [
+    "extensions",
+    "skills",
+    "prompts",
+    "docs",
+    "assets",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
