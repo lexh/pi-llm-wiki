@@ -13,7 +13,7 @@
  *   node scripts/migrate-llm-wiki.js --force        # Skip confirmation prompt
  */
 
-import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // ─── Helpers ────────────────────────────────────────────
