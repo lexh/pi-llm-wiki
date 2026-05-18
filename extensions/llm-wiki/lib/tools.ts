@@ -28,8 +28,8 @@ import {
  * All LLM Wiki custom tools.
  */
 
-function getPaths(cwd = process.cwd()): VaultPaths {
-  return resolveVaultPaths(cwd);
+function getPaths(cwd?: string): VaultPaths {
+  return resolveVaultPaths(cwd ?? process.cwd());
 }
 
 function requireVault(paths: VaultPaths): { ok: true } | { ok: false; reason: string } {
@@ -58,7 +58,7 @@ export function registerWikiBootstrap(pi: ExtensionAPI): void {
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const root = params.root ? params.root : (ctx.cwd ?? process.cwd());
+      const root = params.root ?? ctx.cwd ?? process.cwd();
       const mode = params.mode || "personal";
       const paths = getVaultPaths(root);
 
@@ -121,6 +121,7 @@ export function registerWikiBootstrap(pi: ExtensionAPI): void {
             type: "text",
             text: [
               `✅ Wiki bootstrapped at \`${paths.root}\``,
+              "**Scope:** project-local",
               "",
               "**Structure:**",
               "- .llm-wiki/raw/sources/ — immutable source packets",
@@ -158,8 +159,8 @@ export function registerWikiCaptureSource(pi: ExtensionAPI): void {
       text: Type.Optional(Type.String({ description: "Pasted text content" })),
       title: Type.Optional(Type.String({ description: "Title for pasted text" })),
     }),
-    async execute(_toolCallId, params, signal) {
-      const paths = getPaths();
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      const paths = getPaths(ctx.cwd);
       const vaultCheck = requireVault(paths);
       if (!vaultCheck.ok) {
         return {
@@ -239,8 +240,8 @@ export function registerWikiIngest(pi: ExtensionAPI): void {
         Type.Number({ description: "Max sources to return (default: 3, max: 5)", default: 3 }),
       ),
     }),
-    async execute(_toolCallId, params) {
-      const paths = getPaths();
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const paths = getPaths(ctx.cwd);
       const vaultCheck = requireVault(paths);
       if (!vaultCheck.ok) {
         return {
@@ -377,8 +378,8 @@ export function registerWikiEnsurePage(pi: ExtensionAPI): void {
         Type.String({ description: "Optional initial content (otherwise uses template)" }),
       ),
     }),
-    async execute(_toolCallId, params) {
-      const paths = getPaths();
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const paths = getPaths(ctx.cwd);
       const vaultCheck = requireVault(paths);
       if (!vaultCheck.ok) {
         return {
@@ -523,8 +524,8 @@ export function registerWikiSearch(pi: ExtensionAPI): void {
       query: Type.String({ description: "Search term" }),
       type: Type.Optional(Type.String({ description: "Filter by page type" })),
     }),
-    async execute(_toolCallId, params) {
-      const paths = getPaths();
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const paths = getPaths(ctx.cwd);
       const registry = readJson<Registry>(join(paths.meta, "registry.json"), {
         version: "1.0",
         last_updated: "",
@@ -586,8 +587,8 @@ export function registerWikiLint(pi: ExtensionAPI): void {
         Type.Boolean({ description: "Auto-fix orphans and missing pages", default: false }),
       ),
     }),
-    async execute(_toolCallId, params) {
-      const paths = getPaths();
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const paths = getPaths(ctx.cwd);
       const vaultCheck = requireVault(paths);
       if (!vaultCheck.ok) {
         return {
@@ -741,8 +742,8 @@ export function registerWikiStatus(pi: ExtensionAPI): void {
     promptSnippet: "Report wiki health and stats",
     promptGuidelines: ["Use wiki_status for a quick overview."],
     parameters: Type.Object({}),
-    async execute() {
-      const paths = getPaths();
+    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+      const paths = getPaths(ctx.cwd);
       const vaultCheck = requireVault(paths);
       if (!vaultCheck.ok) {
         return {
@@ -818,8 +819,8 @@ export function registerWikiRebuildMeta(pi: ExtensionAPI): void {
     promptSnippet: "Rebuild all wiki metadata",
     promptGuidelines: ["Use wiki_rebuild_meta if metadata seems out of sync."],
     parameters: Type.Object({}),
-    async execute() {
-      const paths = getPaths();
+    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+      const paths = getPaths(ctx.cwd);
       const vaultCheck = requireVault(paths);
       if (!vaultCheck.ok) {
         return {
@@ -864,8 +865,8 @@ export function registerWikiLogEvent(pi: ExtensionAPI): void {
       kind: Type.String({ description: "Event kind (e.g., ingest, query, decision)" }),
       details: Type.Optional(Type.Object({}, { description: "Additional event fields" })),
     }),
-    async execute(_toolCallId, params) {
-      const paths = getPaths();
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const paths = getPaths(ctx.cwd);
       const vaultCheck = requireVault(paths);
       if (!vaultCheck.ok) {
         return {
@@ -904,7 +905,7 @@ export function registerWikiWatch(pi: ExtensionAPI): void {
     parameters: Type.Object({
       interval: Type.String({ description: "daily, weekly, hourly, or stop" }),
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       if (params.interval === "stop") {
         return {
           content: [
