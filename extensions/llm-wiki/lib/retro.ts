@@ -3,19 +3,24 @@ import { join } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import { appendEvent, rebuildMetadataLight } from "./metadata.js";
-import { type VaultPaths, fmtDate, nextSourceId, resolveVaultPaths } from "./utils.js";
+import { type VaultPaths, fmtDate, resolveVaultPaths } from "./utils.js";
 
 // ─── Public API ────────────────────────────────────────
 
 export interface RetroResult {
-  sourceId: string;
-  packetPath: string;
+  slug: string;
   sourcePagePath: string;
 }
 
 /**
- * Save an atomic insight into the wiki as a source packet + source page.
- * Returns the source ID, packet path, and source page path.
+ * Save an atomic insight into the wiki as a single markdown file.
+ *
+ * Unlike wiki_capture_source (which creates a full source packet with
+ * manifest.json, extracted.md, and attachments), this is a lightweight
+ * path for quick knowledge capture — one file, one call.
+ *
+ * The 4-layer pipeline (raw → source pages → canonical pages → metadata)
+ * is still available via wiki_capture_source → wiki_ingest for deep research.
  */
 export function saveInsight(
   paths: VaultPaths,
@@ -24,69 +29,32 @@ export function saveInsight(
   body: string,
   category?: string,
 ): RetroResult {
-  const sourceId = nextSourceId(paths);
-  const packetPath = join(paths.rawSources, sourceId);
-  mkdirSync(packetPath, { recursive: true });
-  mkdirSync(join(packetPath, "attachments"), { recursive: true });
-
   const today = fmtDate();
 
-  // Write manifest
-  const manifest = {
-    id: sourceId,
-    title,
-    slug,
-    category: category || "uncategorized",
-    captured: today,
-    format: "insight",
-    packet_version: "1.0",
-  };
-  writeFileSync(
-    join(packetPath, "manifest.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-    "utf-8",
-  );
-
-  // Write extracted text (the insight body in markdown)
-  const extracted = [
-    `# ${title}`,
-    "",
-    body,
-    "",
-    "---",
-    `*Captured: ${today}*`,
-    category ? `*Category: ${category}*` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-  writeFileSync(join(packetPath, "extracted.md"), extracted, "utf-8");
-
-  // Create source page
+  // Write a single markdown file to wiki/sources/{slug}.md
   const sourcePageDir = join(paths.wiki, "sources");
   mkdirSync(sourcePageDir, { recursive: true });
-  const sourcePagePath = join(sourcePageDir, `${sourceId}.md`);
+  const sourcePagePath = join(sourcePageDir, `${slug}.md`);
 
-  const tagLine = category ? `category: ${category}` : "";
-  const sourcePageContent = [
+  const pageContent = [
     "---",
     "type: source",
     `title: "${title}"`,
-    `source_id: ${sourceId}`,
+    `slug: ${slug}`,
     "status: insight",
     `created: ${today}`,
     `updated: ${today}`,
-    tagLine,
+    category ? `category: ${category}` : "",
     "---",
     "",
     `# ${title}`,
     "",
     body,
     "",
-    "## Source",
+    category ? `*Category: ${category}*` : "",
     "",
-    `- **Packet:** \`${packetPath}\``,
-    `- **Captured:** ${today}`,
-    category ? `- **Category:** ${category}` : "",
+    "---",
+    `*Captured: ${today}*`,
     "",
     "## Related",
     "",
@@ -95,21 +63,20 @@ export function saveInsight(
   ]
     .filter((l) => l !== "")
     .join("\n");
-  writeFileSync(sourcePagePath, sourcePageContent, "utf-8");
+  writeFileSync(sourcePagePath, pageContent, "utf-8");
 
   // Log event
   appendEvent(paths, {
     kind: "retro",
-    source_id: sourceId,
-    title,
     slug,
+    title,
     category: category || "uncategorized",
   });
 
-  // Rebuild metadata
+  // Rebuild metadata so the insight is immediately searchable
   rebuildMetadataLight(paths);
 
-  return { sourceId, packetPath, sourcePagePath };
+  return { slug, sourcePagePath };
 }
 
 // ─── Tool Registration ──────────────────────────────────
@@ -176,8 +143,6 @@ export function registerWikiRetro(pi: ExtensionAPI): void {
             text: [
               `🧠 **Insight saved**: ${params.title}`,
               "",
-              `- Source: \`${result.sourceId}\``,
-              `- Packet: \`${result.packetPath}\``,
               `- Page: \`${result.sourcePagePath}\``,
               "",
               "This insight will be auto-surfaced by wiki_recall in future sessions.",
@@ -185,7 +150,6 @@ export function registerWikiRetro(pi: ExtensionAPI): void {
           },
         ],
         details: {
-          sourceId: result.sourceId,
           slug: params.slug,
           title: params.title,
           category: params.category || null,

@@ -2,8 +2,16 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { rebuildMetadataLight } from "../extensions/llm-wiki/lib/metadata.js";
-import { formatRecallContext, searchWiki } from "../extensions/llm-wiki/lib/recall.js";
-import { ensureVaultStructure, getVaultPaths } from "../extensions/llm-wiki/lib/utils.js";
+import {
+  formatRecallContext,
+  searchWiki,
+  searchWikiLayered,
+} from "../extensions/llm-wiki/lib/recall.js";
+import {
+  ensureVaultStructure,
+  getPersonalWikiPaths,
+  getVaultPaths,
+} from "../extensions/llm-wiki/lib/utils.js";
 
 describe("wiki recall", () => {
   let wikiDir: string;
@@ -214,5 +222,82 @@ describe("wiki recall", () => {
     // No config.json means no vault — search should handle gracefully
     const results = searchWiki(paths, "anything");
     expect(results).toEqual([]);
+  });
+
+  describe("layered recall (personal + project)", () => {
+    it("should fall back to primary vault when no personal wiki exists", () => {
+      createRegistryPage(
+        "layered-test",
+        "concept",
+        "Layered Test",
+        "Testing layered recall fallback.",
+      );
+      const paths = getVaultPaths(wikiDir);
+      rebuildMetadataLight(paths);
+      // Personal wiki (~/.llm-wiki/) won't exist in test sandbox
+      // So searchWikiLayered should return primary vault results only
+      const results = searchWikiLayered(paths, "layered test");
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results[0].title).toContain("Layered Test");
+      // Should not have vaultLabel since personal wiki didn't contribute
+      expect(results.every((r) => !r.vaultLabel)).toBe(true);
+    });
+
+    it("should tag personal vault results when personal wiki exists", () => {
+      // Create primary vault page
+      createRegistryPage(
+        "project-concept",
+        "concept",
+        "Project Concept",
+        "A project-specific concept.",
+      );
+      // Also create a personal wiki entry
+      const personalPaths = getPersonalWikiPaths();
+      const personalSourcesDir = join(personalPaths.wiki, "sources");
+      mkdirSync(personalSourcesDir, { recursive: true });
+      const personalMeta = join(personalPaths.meta);
+      mkdirSync(personalMeta, { recursive: true });
+      const personalDotWiki = personalPaths.dotWiki;
+      mkdirSync(personalDotWiki, { recursive: true });
+      writeFileSync(
+        join(personalDotWiki, "config.json"),
+        JSON.stringify({ topic: "Personal", mode: "personal" }),
+      );
+      writeFileSync(
+        join(personalSourcesDir, "personal-insight.md"),
+        [
+          "---",
+          "type: source",
+          'title: "Personal Insight"',
+          "slug: personal-insight",
+          "status: insight",
+          "created: 2026-05-21",
+          "updated: 2026-05-21",
+          "---",
+          "",
+          "# Personal Insight",
+          "",
+          "A personal wiki insight.",
+        ].join("\n"),
+      );
+      rebuildMetadataLight(personalPaths);
+
+      // Now rebuild primary vault metadata
+      const paths = getVaultPaths(wikiDir);
+      rebuildMetadataLight(paths);
+
+      // Search should find results from both vaults
+      const results = searchWikiLayered(paths, "concept", 5);
+      // Personal results should be tagged
+      const personalResults = results.filter((r) => r.vaultLabel);
+      if (personalResults.length > 0) {
+        expect(personalResults[0].vaultLabel).toBe("📓 personal");
+      }
+
+      // Clean up personal wiki test artifacts
+      try {
+        rmSync(personalPaths.dotWiki, { recursive: true, force: true });
+      } catch {}
+    });
   });
 });

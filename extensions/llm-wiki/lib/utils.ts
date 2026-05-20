@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
@@ -32,7 +33,35 @@ export function detectVaultFormat(dir: string): VaultFormat {
   return "none";
 }
 
-/** Resolve vault root from cwd or find nearest wiki root. */
+/** Get the personal wiki root directory (~/.llm-wiki/). */
+export function getPersonalWikiRoot(): string {
+  const envWiki = process.env.WIKI_HOME;
+  if (envWiki) return envWiki;
+  return join(homedir(), ".llm-wiki");
+}
+
+/** Get VaultPaths for the personal wiki. */
+export function getPersonalWikiPaths(): VaultPaths {
+  return getVaultPaths(getPersonalWikiRoot());
+}
+
+/**
+ * Check if a vault is the personal wiki location.
+ * Used in layered recall to avoid double-counting.
+ */
+export function isPersonalVault(paths: VaultPaths): boolean {
+  return paths.root === getPersonalWikiRoot();
+}
+
+/**
+ * Resolve vault root from cwd with personal fallback.
+ *
+ * Priority:
+ * 1. cwd has .llm-wiki/ → project wiki (explicit)
+ * 2. Walk up from cwd → parent project wiki
+ * 3. ~/.llm-wiki/ exists → personal wiki
+ * 4. Fallback: ~/.llm-wiki/ (create personal wiki)
+ */
 export function resolveVaultRoot(cwd: string): string {
   // Check for any vault format at cwd
   if (detectVaultFormat(cwd) !== "none") return cwd;
@@ -44,8 +73,12 @@ export function resolveVaultRoot(cwd: string): string {
     if (detectVaultFormat(dir) !== "none") return dir;
   }
 
-  // Fallback: cwd itself
-  return cwd;
+  // Check personal wiki at ~/.llm-wiki/
+  const personalRoot = getPersonalWikiRoot();
+  if (detectVaultFormat(personalRoot) !== "none") return personalRoot;
+
+  // Fallback: personal wiki
+  return personalRoot;
 }
 
 /** Get all vault paths for the new (.llm-wiki) layout. */

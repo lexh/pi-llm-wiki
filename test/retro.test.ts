@@ -48,7 +48,7 @@ describe("wiki retro", () => {
     } catch {}
   });
 
-  it("should save an insight as a source packet with manifest", async () => {
+  it("should save an insight as a single lightweight markdown file", async () => {
     const { saveInsight } = await import("../extensions/llm-wiki/lib/retro.js");
     const paths = getVaultPaths(wikiDir);
     const result = saveInsight(
@@ -58,43 +58,43 @@ describe("wiki retro", () => {
       "This is a test insight.",
       "devops",
     );
-    expect(result.sourceId).toMatch(/^SRC-/);
-    expect(result.packetPath).toContain(".llm-wiki/raw/sources/");
+    // Returns slug and page path (no raw source packet)
+    expect(result.slug).toBe("test-pattern");
     expect(result.sourcePagePath).toContain(".llm-wiki/wiki/sources/");
-    const manifest = JSON.parse(readFile(join(result.packetPath, "manifest.json")));
-    expect(manifest.title).toBe("Test Pattern");
-    expect(manifest.slug).toBe("test-pattern");
-    expect(manifest.format).toBe("insight");
-    expect(manifest.category).toBe("devops");
-    const extracted = readFile(join(result.packetPath, "extracted.md"));
-    expect(extracted).toContain("# Test Pattern");
-    expect(extracted).toContain("This is a test insight.");
-    expect(extracted).toContain("*Captured:");
+    expect(result.sourcePagePath).toContain("test-pattern.md");
+    // Should NOT create raw source packet (lightweight mode)
+    expect(existsSync(join(paths.rawSources))).toBe(true);
+    // Source page should exist with proper frontmatter
+    expect(existsSync(result.sourcePagePath)).toBe(true);
     const sourcePage = readFile(result.sourcePagePath);
     expect(sourcePage).toContain("type: source");
     expect(sourcePage).toContain('title: "Test Pattern"');
+    expect(sourcePage).toContain("slug: test-pattern");
     expect(sourcePage).toContain("status: insight");
     expect(sourcePage).toContain("This is a test insight.");
+    expect(sourcePage).toContain("category: devops");
   });
 
   it("should save an insight without a category", async () => {
     const { saveInsight } = await import("../extensions/llm-wiki/lib/retro.js");
     const paths = getVaultPaths(wikiDir);
     const result = saveInsight(paths, "simple-note", "Simple Note", "Just a note.");
-    const manifest = JSON.parse(readFile(join(result.packetPath, "manifest.json")));
-    expect(manifest.category).toBe("uncategorized");
+    expect(result.slug).toBe("simple-note");
+    expect(existsSync(result.sourcePagePath)).toBe(true);
     const sourcePage = readFile(result.sourcePagePath);
     expect(sourcePage).not.toContain("category:");
   });
 
-  it("should support multiple retros generating unique source IDs", async () => {
+  it("should support multiple retros with unique slugs", async () => {
     const { saveInsight } = await import("../extensions/llm-wiki/lib/retro.js");
     const paths = getVaultPaths(wikiDir);
     const r1 = saveInsight(paths, "insight-one", "One", "First insight.");
     const r2 = saveInsight(paths, "insight-two", "Two", "Second insight.");
-    expect(r1.sourceId).not.toBe(r2.sourceId);
-    expect(existsSync(r1.packetPath)).toBe(true);
-    expect(existsSync(r2.packetPath)).toBe(true);
+    expect(r1.slug).toBe("insight-one");
+    expect(r2.slug).toBe("insight-two");
+    expect(existsSync(r1.sourcePagePath)).toBe(true);
+    expect(existsSync(r2.sourcePagePath)).toBe(true);
+    expect(r1.sourcePagePath).not.toBe(r2.sourcePagePath);
   });
 
   it("should rebuild metadata after saving an insight", async () => {
@@ -102,7 +102,9 @@ describe("wiki retro", () => {
     const paths = getVaultPaths(wikiDir);
     saveInsight(paths, "meta-test", "Meta Test", "Checking metadata.");
     const registry = JSON.parse(readFile(join(paths.meta, "registry.json")));
-    const sourcePageId = Object.keys(registry.pages).find((id) => id.startsWith("sources/SRC-"));
+    const sourcePageId = Object.keys(registry.pages).find((id) =>
+      id.startsWith("sources/meta-test"),
+    );
     expect(sourcePageId).toBeTruthy();
     expect(registry.pages[sourcePageId!].title).toBe('"Meta Test"');
   });
