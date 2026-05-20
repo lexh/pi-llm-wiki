@@ -1,7 +1,7 @@
 ---
 name: llm-wiki
 description: Build and maintain a persistent, interlinked Obsidian-compatible markdown wiki using Karpathy's LLM Wiki pattern. Extension-backed with auto-generated metadata, guardrails, and 12 custom tools.
-whenToUse: At the START of every task, the extension auto-recalls relevant wiki pages — no manual action needed. After completing any meaningful task, call wiki_retro to save insights for future sessions. Invoke proactively — do not wait for the user to ask.
+whenToUse: Call wiki_recall at task start to find relevant wiki pages. Call wiki_retro at task end to save new insights. The extension's auto-recall injects a brief status line, but explicit wiki_recall calls get better results.
 ---
 
 # LLM Wiki for Pi
@@ -59,22 +59,21 @@ WIKI_ROOT/
 | **Recall wiki knowledge**   | Never happens                | **Auto-search before every turn**     |
 | **Save task insights**      | Manual capture               | `wiki_retro` — one tool call          |
 
-## 🔄 Proactive Wiki Usage
+## 🔄 Wiki Usage
 
-### At Task Start — Auto-Recall (Automatic)
+### At Start — Call wiki_recall
 
-**The extension automatically searches the wiki before every user turn.**
+**Call `wiki_recall` at the START of every task** to find relevant wiki pages:
 
-When you send a prompt, the extension:
-1. Extracts key terms from your request
-2. Searches the wiki registry for matching pages
-3. Injects matching page titles + summaries into context
-4. You see this as "Relevant Wiki Knowledge" in your system prompt
+```
+wiki_recall(query="key terms from the user's request", max_results=5)
+```
 
-**This means the wiki works as an automatic second brain.**
-You don't need to remember to search — relevant knowledge is surfaced automatically.
+This searches both your **personal wiki** (`~/.llm-wiki/`) and the **project wiki** (`.llm-wiki/` in the current directory), merging results.
 
-### At Task End — Save Insights (Proactive)
+The extension also briefly searches automatically, but explicit calls with task-specific terms get better results.
+
+### At End — Save Insights with wiki_retro
 
 After completing any meaningful task, call `wiki_retro` to save key insights:
 - Non-obvious bug fixes or workarounds
@@ -84,29 +83,26 @@ After completing any meaningful task, call `wiki_retro` to save key insights:
 
 **Do not wait for the user to ask.** Save insights proactively — one atomic insight per call.
 
-```wiki_retro(slug="kebab-case-slug", title="Brief descriptive title", body="Insight in your own words with [[wikilinks]]")
+```
+wiki_retro(slug="kebab-case-slug", title="Brief descriptive title", body="Insight in your own words with [[wikilinks]]")
 ```
 
-### Manual Recall for Deeper Searches
+### Deeper Searches
 
-If the auto-recall doesn't find enough context, call `wiki_recall` explicitly:
+For thorough research, also use `wiki_search` to browse the full registry:
 
 ```
-wiki_recall(query="specific terms...", max_results=10)
+wiki_search(query="broad topic")
 ```
 
-This gives you more control over the search terms and returns content previews.
+### Auto-Bootstrap (One-Time)
 
-### Auto-Bootstrap (New)
+The extension creates the wiki vault automatically on startup. On the first turn, it injects a directive asking you to infer topic and mode, then call:
+```
+wiki_bootstrap(topic="...", mode="personal|company")
+```
 
-**The extension now creates the wiki vault automatically on startup — no user prompt needed.**
-
-When you start in a directory without a wiki, the extension silently creates `.llm-wiki/` with placeholder config. On your first turn, it injects a directive asking you to:
-1. Analyze the user's prompt and project context
-2. Infer a topic (e.g. "React app", "startup finances")
-3. Call `wiki_bootstrap(topic="...", mode="personal|company")` to finalize setup
-
-This is a one-time step — after bootstrap, normal auto-recall takes over.
+This is a one-time step.
 
 ## Available Tools
 
@@ -114,7 +110,7 @@ Use these directly — they handle scaffolding, bookkeeping, recall, and capture
 
 - `wiki_bootstrap` — Initialize a new vault
 - `wiki_capture_source` — Capture URL/file/text into immutable packet + skeleton page
-- `wiki_recall` — **Auto-called at turn start.** Search wiki for task-relevant pages
+- `wiki_recall` — Search both personal + project wikis for task-relevant pages
 - `wiki_retro` — Save an atomic insight from a completed task into the wiki
 - `wiki_ingest` — Get batch of uningested sources with extracted text
 - `wiki_ensure_page` — Create entity/concept/synthesis/analysis page from template

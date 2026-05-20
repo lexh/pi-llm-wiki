@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { installGuardrails } from "./lib/guardrails.js";
-import { formatRecallContext, registerWikiRecall, searchWiki } from "./lib/recall.js";
+import { formatRecallContext, registerWikiRecall, searchWikiLayered } from "./lib/recall.js";
 import { registerWikiRetro } from "./lib/retro.js";
 import {
   registerWikiBootstrap,
@@ -145,9 +145,9 @@ ${projectHints}
 Then call wiki_bootstrap with the inferred topic and mode to finalize the setup. This is a one-time step.`;
     }
 
-    // Auto-recall: search wiki for relevant pages
+    // Auto-recall: search wiki for relevant pages (layered: personal + project)
     if (prompt.trim()) {
-      const results = searchWiki(paths, prompt);
+      const results = searchWikiLayered(paths, prompt);
       if (results.length > 0) {
         const recallContext = formatRecallContext(results);
         if (recallContext) {
@@ -155,6 +155,10 @@ Then call wiki_bootstrap with the inferred topic and mode to finalize the setup.
         }
       }
     }
+
+    // Always inject a visible wiki status footer, even when empty
+    // This ensures the model knows the wiki is active and can use it
+    injectedContext += `\n\n<wiki_status>LLM Wiki active — use wiki_recall for deeper search, wiki_retro to save new knowledge.</wiki_status>`;
 
     if (injectedContext === event.systemPrompt) return;
     return { systemPrompt: injectedContext };

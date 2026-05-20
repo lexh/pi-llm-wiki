@@ -3,7 +3,13 @@ import { join } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { Registry } from "./metadata.js";
-import { type VaultPaths, readJson, resolveVaultPaths } from "./utils.js";
+import {
+  getPersonalWikiPaths,
+  isPersonalVault,
+  type VaultPaths,
+  readJson,
+  resolveVaultPaths,
+} from "./utils.js";
 
 // ─── Public API ────────────────────────────────────────
 
@@ -18,10 +24,12 @@ export interface RecallResult {
   preview: string;
   /** Relative path from wiki root */
   path: string;
+  /** Vault source label for dual-vault results */
+  vaultLabel?: string;
 }
 
 /**
- * Search the wiki registry for pages matching a query.
+ * Search a single vault's registry for pages matching a query.
  * Returns up to `maxResults` matches, each with a content preview.
  */
 export function searchWiki(paths: VaultPaths, query: string, maxResults = 5): RecallResult[] {
@@ -91,18 +99,65 @@ export function searchWiki(paths: VaultPaths, query: string, maxResults = 5): Re
 /**
  * Format recall results as a compact system-prompt section.
  */
+/**
+ * Search both project/primary vault and personal vault, merging results.
+ * Personal results are appended after primary results, deduplicated by page ID.
+ */
+export function searchWikiLayered(
+  primaryPaths: VaultPaths,
+  query: string,
+  maxResults = 5,
+): RecallResult[] {
+  // Search primary vault
+  const primaryResults = searchWiki(primaryPaths, query, maxResults);
+
+  // If primary is already the personal vault, no layered search needed
+  if (isPersonalVault(primaryPaths)) return primaryResults;
+
+  // Search personal vault as secondary layer
+  const personalPaths = getPersonalWikiPaths();
+  if (!existsSync(join(personalPaths.dotWiki, "config.json"))) return primaryResults;
+
+  const personalResults = searchWiki(personalPaths, query, maxResults);
+
+  // Merge: personal results first (they're the user's accumulated knowledge),
+  // then primary results (project-specific). Deduplicate by page ID.
+  const seen = new Set<string>();
+  const merged: RecallResult[] = [];
+
+  for (const r of [...personalResults, ...primaryResults]) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    // If it's from personal vault, tag it
+    if (personalResults.includes(r)) {
+      merged.push({ ...r, vaultLabel: "📓 personal" });
+    } else {
+      merged.push(r);
+    }
+  }
+
+  return merged.slice(0, maxResults);
+}
+
+/**
+ * Format recall results as a compact system-prompt section.
+ */
 export function formatRecallContext(results: RecallResult[]): string {
   if (results.length === 0) return "";
+
+  const hasLayered = results.some((r) => r.vaultLabel);
+  const label = hasLayered ? " (personal + project)" : "";
 
   const lines: string[] = [
     "## Relevant Wiki Knowledge",
     "",
-    `_${results.length} page(s) matched your query — reviewed automatically by LLM Wiki._`,
+    `_${results.length} page(s) matched your query${label}._`,
     "",
   ];
 
   for (const r of results) {
-    lines.push(`- **[[${r.id}]]** — *${r.type}* — ${r.title}`);
+    const vaultTag = r.vaultLabel ? ` ${r.vaultLabel}` : "";
+    lines.push(`- **[[${r.id}]]** — *${r.type}* — ${r.title}${vaultTag}`);
     if (r.preview) {
       // Truncate preview to one line
       const preview = r.preview.length > 120 ? `${r.preview.slice(0, 120)}…` : r.preview;
@@ -164,30 +219,34 @@ export function registerWikiRecall(pi: ExtensionAPI): void {
       }
 
       const maxResults = Math.min(params.max_results ?? 5, 10);
-      const results = searchWiki(paths, params.query, maxResults);
+      // Use layered search: personal vault + project vault
+      const results = searchWikiLayered(paths, params.query, maxResults);
 
       if (results.length === 0) {
         return {
           content: [
             {
               type: "text",
-              text: `No wiki pages found matching "${params.query}". Use wiki_search for broader results.`,
+              text: `No wiki pages found matching "${params.query}". The wiki is empty — use wiki_retro to start building knowledge.`,
             },
           ],
           details: { query: params.query, matches: [] } as Record<string, unknown>,
         };
       }
 
+      const hasPersonal = results.some((r) => r.vaultLabel);
+      const layerTag = hasPersonal ? " (personal + project)" : "";
+
       return {
         content: [
           {
             type: "text",
             text: [
-              `🧠 **${results.length} wiki page(s) relevant** to "${params.query}":`,
+              `🧠 **${results.length} wiki page(s) relevant** to "${params.query}"${layerTag}:`,
               "",
               ...results.map(
                 (r) =>
-                  `- [[${r.id}]] — *${r.type}* — ${r.title}${
+                  `- ${r.vaultLabel || "📁"} [[${r.id}]] — *${r.type}* — ${r.title}${
                     r.preview ? `\n  > ${r.preview.slice(0, 150)}` : ""
                   }`,
               ),
