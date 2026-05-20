@@ -4,9 +4,9 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
 import type { Registry } from "./metadata.js";
 import {
+  type VaultPaths,
   getPersonalWikiPaths,
   isPersonalVault,
-  type VaultPaths,
   readJson,
   resolveVaultPaths,
 } from "./utils.js";

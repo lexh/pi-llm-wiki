@@ -160,7 +160,8 @@ Then call wiki_bootstrap with the inferred topic and mode to finalize the setup.
 
     // Always inject a visible wiki status footer, even when empty
     // This ensures the model knows the wiki is active and can use it
-    injectedContext += `\n\n<wiki_status>LLM Wiki active — use wiki_recall for deeper search, wiki_retro to save new knowledge.</wiki_status>`;
+    injectedContext +=
+      "\n\n<wiki_status>LLM Wiki active — use wiki_recall for deeper search, wiki_retro to save new knowledge.</wiki_status>";
 
     if (injectedContext === event.systemPrompt) return;
     return { systemPrompt: injectedContext };

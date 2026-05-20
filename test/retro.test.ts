@@ -63,9 +63,7 @@ describe("wiki retro", () => {
     expect(result.sourcePagePath).toContain(".llm-wiki/wiki/sources/");
     expect(result.sourcePagePath).toContain("test-pattern.md");
     // Should NOT create raw source packet (lightweight mode)
-    expect(
-      existsSync(join(paths.rawSources)),
-    ).toBe(true);
+    expect(existsSync(join(paths.rawSources))).toBe(true);
     // Source page should exist with proper frontmatter
     expect(existsSync(result.sourcePagePath)).toBe(true);
     const sourcePage = readFile(result.sourcePagePath);
@@ -104,7 +102,9 @@ describe("wiki retro", () => {
     const paths = getVaultPaths(wikiDir);
     saveInsight(paths, "meta-test", "Meta Test", "Checking metadata.");
     const registry = JSON.parse(readFile(join(paths.meta, "registry.json")));
-    const sourcePageId = Object.keys(registry.pages).find((id) => id.startsWith("sources/meta-test"));
+    const sourcePageId = Object.keys(registry.pages).find((id) =>
+      id.startsWith("sources/meta-test"),
+    );
     expect(sourcePageId).toBeTruthy();
     expect(registry.pages[sourcePageId!].title).toBe('"Meta Test"');
   });
