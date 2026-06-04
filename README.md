@@ -402,6 +402,33 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, test patterns, and
 Thanks to everyone who has contributed! This list is regenerated automatically by [`.github/workflows/contributors.yml`](.github/workflows/contributors.yml) — see [#60](https://github.com/zosmaai/pi-llm-wiki/issues/60) for the rationale.
 
 <!-- readme: contributors -start -->
+<table>
+	<tbody>
+		<tr>
+            <td align="center">
+                <a href="https://github.com/arjun-zosma">
+                    <img src="https://avatars.githubusercontent.com/u/25246034?v=4" width="64;" alt="arjun-zosma"/>
+                    <br />
+                    <sub><b>Arjun Nayak</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/jfraser">
+                    <img src="https://avatars.githubusercontent.com/u/165964?v=4" width="64;" alt="jfraser"/>
+                    <br />
+                    <sub><b>James Fraser</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/Shanvit7">
+                    <img src="https://avatars.githubusercontent.com/u/64424817?v=4" width="64;" alt="Shanvit7"/>
+                    <br />
+                    <sub><b>Shanvit S Shetty</b></sub>
+                </a>
+            </td>
+		</tr>
+	<tbody>
+</table>
 <!-- readme: contributors -end -->
 
 <sub>Full history: [contributors graph](https://github.com/zosmaai/pi-llm-wiki/graphs/contributors).</sub>
