@@ -1,7 +1,7 @@
 ---
 name: llm-wiki
-description: Build and maintain a persistent, interlinked Obsidian-compatible markdown wiki using Karpathy's LLM Wiki pattern. Extension-backed with auto-generated metadata, guardrails, and 12 custom tools.
-whenToUse: Call wiki_recall at task start to find relevant wiki pages. Call wiki_retro at task end to save new insights. The extension injects a brief status line, but explicit wiki_recall calls with task-specific terms get better results.
+description: Build and maintain a persistent, interlinked Obsidian-compatible markdown wiki using Karpathy's LLM Wiki pattern. Extension-backed with auto-generated metadata, guardrails, and 13 custom tools (+3 opt-in agent-trajectory tools).
+whenToUse: Call wiki_recall at task start to find relevant wiki pages. Call wiki_retro at task end to save new insights. When agent-trajectory working-memory is enabled (opt-in, /wiki-trajectories on), also call wiki_recall_skill at task start to find reusable skills / past cases ("have I done this before?") and wiki_capture_trajectory after non-trivial tasks to record how you solved them. The extension injects a brief status line, but explicit calls with task-specific terms get better results.
 ---
 
 # LLM Wiki for Pi
@@ -20,12 +20,18 @@ WIKI_ROOT/
     │   ├── original/
     │   ├── extracted.md
     │   └── attachments/
+    ├── raw/trajectories/TRJ-*/ # Immutable agent task packets (extension-owned)
+    │   ├── manifest.json      # Capture metadata (format: trajectory)
+    │   ├── packet.json        # Full tool-call sequence
+    │   └── extracted.md       # README summary
     ├── wiki/                  # Editable knowledge pages (you own this)
     │   ├── sources/           # One summary per source
     │   ├── entities/          # People, orgs, tools, products
     │   ├── concepts/          # Ideas, patterns, frameworks
     │   ├── syntheses/         # Cross-cutting analyses
-    │   └── analyses/          # Durable query answers
+    │   ├── analyses/          # Durable query answers
+    │   ├── cases/             # One specific past task per trajectory
+    │   └── skills/            # Reusable patterns distilled from trajectories
     ├── meta/                  # Auto-generated (extension-owned)
     │   ├── registry.json      # Master page catalog
     │   ├── backlinks.json     # Inbound link map
@@ -45,6 +51,49 @@ WIKI_ROOT/
 5. **CROSS-REFERENCE EVERYTHING.** Every page needs at least 2 `[[wikilinks]]`.
 6. **CITE SOURCES.** Every claim links back to its raw source packet.
 7. **FLAG CONTRADICTIONS.** When sources disagree, document both sides.
+
+## Agent Working-Memory (Trajectories)
+
+The wiki captures not only what you *read* (sources) but what you *do*
+(trajectories). A completed task is just another kind of source, so it flows
+through the same pipeline:
+
+```
+raw/trajectories/TRJ-*  →  wiki/skills/*  (+ optional wiki/cases/*)  →  meta/*
+```
+
+> **Opt-in, off by default** (issue #80). The three tools below are only registered
+> when `llm-wiki.trajectories` is enabled. Turn it on with `/wiki-trajectories on`
+> (off with `/wiki-trajectories off`); toggling reloads the extension. When off, the
+> tools are absent entirely — no system-prompt cost.
+
+- `wiki_capture_trajectory` writes the immutable packet + a **self-contained summary**
+  (`extracted.md`), auto-extracting the tool-call sequence from the live session (you
+  usually only pass a `title`). It does **not** emit a to-be-fleshed skeleton — capture
+  is a single lightweight call.
+- `wiki_distill_skills` returns undistilled trajectories so you can generalize them
+  into reusable `skill` pages (and optionally `case` pages) via `wiki_ensure_page`.
+- `wiki_recall_skill` filters layered recall to `skill`/`case` pages —
+  "have I done something like this before?". Call it at task start.
+
+A **skill** generalizes across many trajectories ("how I do X"); a **case** is one
+concrete past run ("the time I did X for project Y"). Trajectory packets live under
+`raw/**` and are therefore immutable under the same guardrail as source packets —
+edit the `case`/`skill` pages, never the packet.
+
+### When to use which memory tool
+
+| Tool | Stores | Use for |
+|------|--------|---------|
+| `wiki_capture_trajectory` | A structured, **replayable** tool-call packet (`packet.json`: tool names + arguments + results + errors) | "How did I *mechanically* solve this?" — the exact step sequence, to distill into a repeatable skill |
+| `wiki_retro` | A durable prose **insight** (one markdown file) | "What did I learn?" — a lesson/gotcha worth keeping, not a step list |
+| `wiki_observe` | A timestamped prose **observation** | Lightweight running notes the extension reminds you to jot during a task |
+
+Why a separate trajectory store and not pi's built-in observational-memory? pi's
+observational-memory keeps **prose** for context-compaction survival — it does not
+persist the structured tool-call sequence (names, arguments, results). The trajectory
+packet is the only artifact that captures a task as a replayable record, which is what
+makes skill distillation possible.
 
 ## How the Extension Helps You
 
@@ -150,6 +199,9 @@ Use these directly — they handle scaffolding, bookkeeping, recall, and capture
 - `wiki_rebuild_meta` — Force metadata rebuild
 - `wiki_log_event` — Record a custom event
 - `wiki_watch` — Schedule auto-updates
+- `wiki_capture_trajectory` — Capture the completed task's tool-call trajectory (working-memory)
+- `wiki_distill_skills` — Batch undistilled trajectories for skill synthesis
+- `wiki_recall_skill` — Recall distilled skills + similar past cases
 
 ## Workflows
 
@@ -180,6 +232,15 @@ Use these directly — they handle scaffolding, bookkeeping, recall, and capture
 4. Extension auto-updates metadata
 5. Next time, layered recall surfaces your saved insight
 
+### Task → Record → Distill (agent working-memory)
+
+1. Finish a non-trivial task (debug, refactor, integration)
+2. `wiki_capture_trajectory(title="...")` — auto-extracts the tool-call trajectory into `raw/trajectories/TRJ-*` with a self-contained summary (no skeleton)
+3. Flesh out the `wiki/cases/` page (Task → Approach → Outcome)
+4. `wiki_distill_skills()` — get undistilled trajectories
+5. `wiki_ensure_page(type="skill", title="...")` — generalize into a reusable skill citing `[[trajectories/TRJ-...]]`
+6. Next time, `wiki_recall_skill(query="...")` surfaces the skill/case before you start
+
 ## Page Conventions
 
 ### Naming
@@ -191,7 +252,7 @@ Use these directly — they handle scaffolding, bookkeeping, recall, and capture
 
 ```yaml
 ---
-type: entity | concept | source | synthesis | analysis
+type: entity | concept | source | synthesis | analysis | skill | case | trajectory
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 sources: [sources/SRC-YYYY-MM-DD-NNN]
@@ -200,10 +261,13 @@ sources: [sources/SRC-YYYY-MM-DD-NNN]
 
 Entity: add `category: person | organization | tool | project | product`
 Concept: add `domain: ai | engineering | business | product | design | personal`
+Skill: add `trajectories: [trajectories/TRJ-YYYY-MM-DD-NNN]`
+Case: add `trajectory_id: TRJ-YYYY-MM-DD-NNN` and `outcome: success | failure | partial`
 
 ### Citations
 
 Use stable source IDs: `[[sources/SRC-2026-04-28-001]]`
+Cite trajectories with their stable IDs: `[[trajectories/TRJ-2026-04-28-001]]`
 
 ### Contradictions
 
