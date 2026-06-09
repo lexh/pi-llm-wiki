@@ -442,6 +442,13 @@ Thanks to everyone who has contributed! This list is regenerated automatically b
                     <sub><b>Akshay</b></sub>
                 </a>
             </td>
+            <td align="center">
+                <a href="https://github.com/mystery4f">
+                    <img src="https://avatars.githubusercontent.com/u/40482524?v=4" width="64;" alt="mystery4f"/>
+                    <br />
+                    <sub><b>标准萌新</b></sub>
+                </a>
+            </td>
 		</tr>
 	<tbody>
 </table>
