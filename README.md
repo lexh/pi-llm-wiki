@@ -422,17 +422,17 @@ Thanks to everyone who has contributed! This list is regenerated automatically b
                 </a>
             </td>
             <td align="center">
-                <a href="https://github.com/jfraser">
-                    <img src="https://avatars.githubusercontent.com/u/165964?v=4" width="64;" alt="jfraser"/>
-                    <br />
-                    <sub><b>James Fraser</b></sub>
-                </a>
-            </td>
-            <td align="center">
                 <a href="https://github.com/Shanvit7">
                     <img src="https://avatars.githubusercontent.com/u/64424817?v=4" width="64;" alt="Shanvit7"/>
                     <br />
                     <sub><b>Shanvit S Shetty</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/jfraser">
+                    <img src="https://avatars.githubusercontent.com/u/165964?v=4" width="64;" alt="jfraser"/>
+                    <br />
+                    <sub><b>James Fraser</b></sub>
                 </a>
             </td>
             <td align="center">
