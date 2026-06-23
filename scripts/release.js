@@ -29,9 +29,9 @@ if (branch !== "main") {
 }
 
 // Run checks
-execSync("npm run typecheck", { stdio: "inherit" });
-execSync("npm run lint", { stdio: "inherit" });
-execSync("npm test", { stdio: "inherit" });
+execSync("pnpm typecheck", { stdio: "inherit" });
+execSync("pnpm lint", { stdio: "inherit" });
+execSync("pnpm test", { stdio: "inherit" });
 
 // Read current version
 const pkgPath = path.join(__dirname, "..", "package.json");

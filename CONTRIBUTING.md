@@ -5,18 +5,18 @@
 ```bash
 git clone https://github.com/zosmaai/pi-llm-wiki.git
 cd pi-llm-wiki
-npm install
+pnpm install
 pi install ./
 ```
 
 ## Development
 
 ```bash
-npm run test           # run tests
-npm run test:coverage  # run tests with coverage report
-npm run typecheck      # TypeScript type check
-npm run lint           # biome lint check
-npm run lint:fix       # auto-fix lint issues
+pnpm test              # run tests
+pnpm test:coverage     # run tests with coverage report
+pnpm typecheck         # TypeScript type check
+pnpm lint              # biome lint check
+pnpm lint:fix          # auto-fix lint issues
 ```
 
 ## Pull Request Hygiene
@@ -48,10 +48,10 @@ correct and to keep the bug from coming back.
 ## Release Process
 
 ```bash
-npm run release:patch  # bump patch version
-npm run release:minor  # bump minor version
-npm run release:major  # bump major version
-npm run release:push   # push to origin with tags
+pnpm release:patch  # bump patch version
+pnpm release:minor  # bump minor version
+pnpm release:major  # bump major version
+pnpm release:push   # push to origin with tags
 ```
 
 The release script:

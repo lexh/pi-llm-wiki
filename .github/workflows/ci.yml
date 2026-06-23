@@ -20,21 +20,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: true
 
       - name: Type Check
-        run: npm run typecheck
+        run: pnpm typecheck
 
       - name: Lint
-        run: npm run lint
+        run: pnpm lint
 
       - name: Run Tests with Coverage
-        run: npm run test:coverage
+        run: pnpm test:coverage
 
       - name: Upload Coverage to Codecov
         if: ${{ matrix.node-version == 22 && github.event_name == 'push' }}
