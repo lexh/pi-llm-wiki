@@ -41,10 +41,10 @@ Instructions for AI agents working on this codebase.
 ## Testing
 
 ```bash
-npm test              # run tests
-npm run test:coverage # run with coverage
-npm run typecheck     # TypeScript check
-npm run lint          # biome check
+pnpm test              # run tests
+pnpm test:coverage     # run with coverage
+pnpm typecheck         # TypeScript check
+pnpm lint              # biome check
 ```
 
 ## Release
