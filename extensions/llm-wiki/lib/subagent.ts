@@ -3,8 +3,9 @@ import {
   type AgentLoopConfig,
   type AgentTool,
   agentLoop,
-} from "@mariozechner/pi-agent-core";
-import type { Api, Message, Model } from "@mariozechner/pi-ai";
+} from "@earendil-works/pi-agent-core";
+import type { Api, Message, Model } from "@earendil-works/pi-ai";
+import { streamSimple } from "@earendil-works/pi-ai/compat";
 
 /**
  * Thin sub-agent runner for the LLM Wiki background lane (issue #64, part of #63).
@@ -44,7 +45,16 @@ export interface RunSubAgentArgs<TApi extends Api = Api> {
 export async function runSubAgent<TApi extends Api = Api>(
   args: RunSubAgentArgs<TApi>,
 ): Promise<void> {
-  const { model, apiKey, headers, systemPrompt, userPrompt, tools, maxTokens, signal } = args;
+  const {
+    model,
+    apiKey,
+    headers,
+    systemPrompt,
+    userPrompt,
+    tools,
+    maxTokens,
+    signal,
+  } = args;
 
   const text = userPrompt.trim();
   if (!text) return;
@@ -74,7 +84,10 @@ export async function runSubAgent<TApi extends Api = Api>(
     ...(reasoning ? { reasoning: "high" as const } : {}),
   };
 
-  const stream = agentLoop(prompts, context, config, signal);
+  // agentLoop (0.81+) injects the provider stream fn as the 5th arg; earlier
+  // versions used a built-in default. streamSimple dispatches by model.api and
+  // reads apiKey/headers from config (AgentLoopConfig extends SimpleStreamOptions).
+  const stream = agentLoop(prompts, context, config, signal, streamSimple);
   for await (const _event of stream) {
     // Drain events; tool `execute` callbacks collect results caller-side.
   }

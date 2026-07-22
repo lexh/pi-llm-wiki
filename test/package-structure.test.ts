@@ -12,7 +12,7 @@ describe("package structure", () => {
     expect(pkg.pi.skills).toContain("./skills");
     expect(pkg.pi.prompts).toContain("./prompts");
     expect(pkg.peerDependencies).toBeDefined();
-    expect(pkg.peerDependencies["@mariozechner/pi-coding-agent"]).toBe("*");
+    expect(pkg.peerDependencies["@earendil-works/pi-coding-agent"]).toBe("*");
     expect(pkg.peerDependencies.typebox).toBe("*");
   });
 
