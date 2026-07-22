@@ -1,8 +1,18 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { launchEmbedPages, reindexEmbeddings, resolveEmbedder } from "./embeddings.js";
+import {
+  launchEmbedPages,
+  reindexEmbeddings,
+  resolveEmbedder,
+} from "./embeddings.js";
 import { scheduleReindex } from "./indexing.js";
 import { runIngestSynthesis } from "./ingest-worker.js";
 import {
@@ -37,9 +47,14 @@ function getPaths(cwd?: string): VaultPaths {
   return resolveVaultPaths(cwd ?? process.cwd());
 }
 
-function requireVault(paths: VaultPaths): { ok: true } | { ok: false; reason: string } {
+function requireVault(
+  paths: VaultPaths,
+): { ok: true } | { ok: false; reason: string } {
   if (detectVaultFormat(paths.root) === "none") {
-    return { ok: false, reason: `No wiki found at ${paths.root}. Run wiki_bootstrap first.` };
+    return {
+      ok: false,
+      reason: `No wiki found at ${paths.root}. Run wiki_bootstrap first.`,
+    };
   }
   return { ok: true };
 }
@@ -86,7 +101,11 @@ async function dispatchReported(
       details: { background: false, ...opts.details },
     };
   }
-  runtime.launchReported({ hasUI: ctx.hasUI, ui: ctx.ui }, opts.label, opts.work);
+  runtime.launchReported(
+    { hasUI: ctx.hasUI, ui: ctx.ui },
+    opts.label,
+    opts.work,
+  );
   return {
     content: [{ type: "text", text: opts.started }],
     details: { background: true, ...opts.details },
@@ -103,12 +122,18 @@ export function registerWikiBootstrap(pi: ExtensionAPI): void {
       "Initialize a new LLM Wiki vault with the 4-layer architecture. " +
       "Creates config, templates, schema, and metadata scaffolding.",
     promptSnippet: "Initialize a new LLM Wiki vault",
-    promptGuidelines: ["Use wiki_bootstrap when the user wants to start a new wiki."],
+    promptGuidelines: [
+      "Use wiki_bootstrap when the user wants to start a new wiki.",
+    ],
     parameters: Type.Object({
       topic: Type.String({ description: "Main topic of the wiki" }),
-      mode: Type.Optional(Type.String({ description: "personal or company (default: personal)" })),
+      mode: Type.Optional(
+        Type.String({ description: "personal or company (default: personal)" }),
+      ),
       root: Type.Optional(
-        Type.String({ description: "Root directory (default: current directory)" }),
+        Type.String({
+          description: "Root directory (default: current directory)",
+        }),
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -196,7 +221,10 @@ export function registerWikiBootstrap(pi: ExtensionAPI): void {
 
 // ─── 2. wiki_capture_source ─────────────────────────────
 
-export function registerWikiCaptureSource(pi: ExtensionAPI, runtime?: Runtime): void {
+export function registerWikiCaptureSource(
+  pi: ExtensionAPI,
+  runtime?: Runtime,
+): void {
   pi.registerTool({
     name: "wiki_capture_source",
     label: "Wiki Capture Source",
@@ -209,9 +237,13 @@ export function registerWikiCaptureSource(pi: ExtensionAPI, runtime?: Runtime): 
     ],
     parameters: Type.Object({
       url: Type.Optional(Type.String({ description: "URL to capture" })),
-      file_path: Type.Optional(Type.String({ description: "Local file path to capture" })),
+      file_path: Type.Optional(
+        Type.String({ description: "Local file path to capture" }),
+      ),
       text: Type.Optional(Type.String({ description: "Pasted text content" })),
-      title: Type.Optional(Type.String({ description: "Title for pasted text" })),
+      title: Type.Optional(
+        Type.String({ description: "Title for pasted text" }),
+      ),
     }),
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const paths = getPaths(ctx.cwd);
@@ -231,16 +263,37 @@ export function registerWikiCaptureSource(pi: ExtensionAPI, runtime?: Runtime): 
         extracted: string;
       };
 
-      if (params.url) {
-        result = await captureUrl(pi, paths, params.url, signal);
-      } else if (params.file_path) {
-        result = await captureFile(pi, paths, params.file_path, signal);
-      } else if (params.text) {
-        result = captureText(paths, params.text, params.title);
-      } else {
+      if (!params.url && !params.file_path && !params.text) {
         return {
-          content: [{ type: "text", text: "❌ Provide one of: url, file_path, or text" }],
+          content: [
+            {
+              type: "text",
+              text: "❌ Provide one of: url, file_path, or text",
+            },
+          ],
           details: { error: "missing_source" } as Record<string, unknown>,
+          isError: true,
+        };
+      }
+
+      try {
+        if (params.url) {
+          result = await captureUrl(pi, paths, params.url, signal);
+        } else if (params.file_path) {
+          result = await captureFile(pi, paths, params.file_path, signal);
+        } else {
+          result = captureText(paths, params.text as string, params.title);
+        }
+      } catch (err) {
+        // Includes SSRF/scheme rejections from assertFetchableUrl and any
+        // extractor failure. Surface as a clean tool error, not a crash.
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: "text", text: `❌ Capture refused: ${message}` }],
+          details: { error: "capture_failed", message } as Record<
+            string,
+            unknown
+          >,
           isError: true,
         };
       }
@@ -293,10 +346,15 @@ export function registerWikiIngest(pi: ExtensionAPI, runtime?: Runtime): void {
     ],
     parameters: Type.Object({
       source_id: Type.Optional(
-        Type.String({ description: "Specific source ID to ingest. Leave empty for all new." }),
+        Type.String({
+          description: "Specific source ID to ingest. Leave empty for all new.",
+        }),
       ),
       batch_size: Type.Optional(
-        Type.Number({ description: "Max sources to process (default: 3, max: 5)", default: 3 }),
+        Type.Number({
+          description: "Max sources to process (default: 3, max: 5)",
+          default: 3,
+        }),
       ),
       background: Type.Optional(
         Type.Boolean({
@@ -348,7 +406,10 @@ export function registerWikiIngest(pi: ExtensionAPI, runtime?: Runtime): void {
       });
       const ingested = new Set<string>();
       for (const [id, entry] of Object.entries(registry.pages)) {
-        if (entry.type === "source" && (entry as Record<string, unknown>).status !== "skeleton") {
+        if (
+          entry.type === "source" &&
+          (entry as Record<string, unknown>).status !== "skeleton"
+        ) {
           const base = id.split("/").pop();
           if (base) ingested.add(base);
         }
@@ -357,15 +418,21 @@ export function registerWikiIngest(pi: ExtensionAPI, runtime?: Runtime): void {
       let toProcess = packets.filter((p) => !ingested.has(p));
 
       if (params.source_id) {
-        if (!toProcess.includes(params.source_id) && !packets.includes(params.source_id)) {
+        if (
+          !toProcess.includes(params.source_id) &&
+          !packets.includes(params.source_id)
+        ) {
           return {
             content: [
-              { type: "text", text: `Source ${params.source_id} not found or already ingested.` },
+              {
+                type: "text",
+                text: `Source ${params.source_id} not found or already ingested.`,
+              },
             ],
-            details: { source_id: params.source_id, status: "not_found" } as Record<
-              string,
-              unknown
-            >,
+            details: {
+              source_id: params.source_id,
+              status: "not_found",
+            } as Record<string, unknown>,
           };
         }
         toProcess = [params.source_id];
@@ -381,14 +448,19 @@ export function registerWikiIngest(pi: ExtensionAPI, runtime?: Runtime): void {
               text: "✅ All sources ingested. Use wiki_capture_source to add new ones.",
             },
           ],
-          details: { ingested: ingested.size, total: packets.length } as Record<string, unknown>,
+          details: { ingested: ingested.size, total: packets.length } as Record<
+            string,
+            unknown
+          >,
         };
       }
 
       const sources = batch.map((id) => {
         const extractedPath = join(paths.rawSources, id, "extracted.md");
         const manifestPath = join(paths.rawSources, id, "manifest.json");
-        const extracted = existsSync(extractedPath) ? readFileSync(extractedPath, "utf-8") : "";
+        const extracted = existsSync(extractedPath)
+          ? readFileSync(extractedPath, "utf-8")
+          : "";
         const manifest = readJson<Record<string, unknown>>(manifestPath, {});
         return { id, extracted, manifest };
       });
@@ -410,7 +482,9 @@ export function registerWikiIngest(pi: ExtensionAPI, runtime?: Runtime): void {
           for (const s of sources) {
             runtime.launchTask(launchCtx, `ingest:${s.id}`, async () => {
               const committed = await runIngestSynthesis({
-                model: resolved.model as Parameters<typeof runIngestSynthesis>[0]["model"],
+                model: resolved.model as Parameters<
+                  typeof runIngestSynthesis
+                >[0]["model"],
                 apiKey: resolved.apiKey,
                 headers: resolved.headers,
                 paths,
@@ -428,7 +502,13 @@ export function registerWikiIngest(pi: ExtensionAPI, runtime?: Runtime): void {
                   ...committed.conceptsCreated.map((c) => `concepts/${c}`),
                   ...committed.conceptsLinked.map((c) => `concepts/${c}`),
                 ];
-                launchEmbedPages(runtime, launchCtx, paths, pageIds, `embed:ingest:${s.id}`);
+                launchEmbedPages(
+                  runtime,
+                  launchCtx,
+                  paths,
+                  pageIds,
+                  `embed:ingest:${s.id}`,
+                );
               }
               const summary = committed
                 ? `LLM Wiki: ingested ${s.id} → ${committed.entitiesCreated.length} entit${committed.entitiesCreated.length === 1 ? "y" : "ies"}, ${committed.conceptsCreated.length} concept${committed.conceptsCreated.length === 1 ? "" : "s"}`
@@ -448,7 +528,9 @@ export function registerWikiIngest(pi: ExtensionAPI, runtime?: Runtime): void {
                 text: [
                   `🔄 **Ingesting ${sources.length} source(s) in the background** (${toProcess.length - batch.length} remaining).`,
                   "",
-                  ...sources.map((s) => `- **${s.id}**: ${s.manifest.title || s.id}`),
+                  ...sources.map(
+                    (s) => `- **${s.id}**: ${s.manifest.title || s.id}`,
+                  ),
                   "",
                   "Synthesis runs on the configured task model without blocking. You'll be notified as each source completes — do NOT synthesize these yourself.",
                 ].join("\n"),
@@ -501,11 +583,15 @@ export function registerWikiIngest(pi: ExtensionAPI, runtime?: Runtime): void {
 
 // ─── 4. wiki_ensure_page ────────────────────────────────
 
-export function registerWikiEnsurePage(pi: ExtensionAPI, runtime?: Runtime): void {
+export function registerWikiEnsurePage(
+  pi: ExtensionAPI,
+  runtime?: Runtime,
+): void {
   pi.registerTool({
     name: "wiki_ensure_page",
     label: "Wiki Ensure Page",
-    description: "Resolve or safely create a canonical wiki page. Returns the page path.",
+    description:
+      "Resolve or safely create a canonical wiki page. Returns the page path.",
     promptSnippet: "Create a canonical wiki page if it doesn't exist",
     promptGuidelines: [
       "Use wiki_ensure_page before creating pages to avoid duplicates.",
@@ -518,7 +604,9 @@ export function registerWikiEnsurePage(pi: ExtensionAPI, runtime?: Runtime): voi
       }),
       title: Type.String({ description: "Page title" }),
       content: Type.Optional(
-        Type.String({ description: "Optional initial content (otherwise uses template)" }),
+        Type.String({
+          description: "Optional initial content (otherwise uses template)",
+        }),
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -561,13 +649,23 @@ export function registerWikiEnsurePage(pi: ExtensionAPI, runtime?: Runtime): voi
 
       if (existsSync(pagePath)) {
         return {
-          content: [{ type: "text", text: `✅ Page already exists: \`${pagePath}\`` }],
-          details: { path: pagePath, created: false } as Record<string, unknown>,
+          content: [
+            { type: "text", text: `✅ Page already exists: \`${pagePath}\`` },
+          ],
+          details: { path: pagePath, created: false } as Record<
+            string,
+            unknown
+          >,
         };
       }
 
       const today = fmtDate();
-      const template = buildPageTemplate(type, params.title, today, params.content);
+      const template = buildPageTemplate(
+        type,
+        params.title,
+        today,
+        params.content,
+      );
       mkdirSync(join(paths.wiki, folder), { recursive: true });
       writeFileSync(pagePath, template, "utf-8");
 
@@ -588,7 +686,9 @@ export function registerWikiEnsurePage(pi: ExtensionAPI, runtime?: Runtime): voi
       }
 
       return {
-        content: [{ type: "text", text: `✅ Created ${type} page: \`${pagePath}\`` }],
+        content: [
+          { type: "text", text: `✅ Created ${type} page: \`${pagePath}\`` },
+        ],
         details: { path: pagePath, created: true } as Record<string, unknown>,
       };
     },
@@ -607,7 +707,10 @@ function buildPageTemplate(
 
   if (type === "entity") {
     return base
-      .replace("[Description to be filled]", "One-line description.\n\n## Overview\n\n[Key facts]")
+      .replace(
+        "[Description to be filled]",
+        "One-line description.\n\n## Overview\n\n[Key facts]",
+      )
       .replace("type: entity", "type: entity\ncategory: organization");
   }
   if (type === "concept") {
@@ -750,7 +853,9 @@ export function registerWikiSearch(pi: ExtensionAPI): void {
     label: "Wiki Search",
     description: "Search the wiki registry for pages matching a query.",
     promptSnippet: "Search the wiki registry for pages",
-    promptGuidelines: ["Use wiki_search to find existing pages before creating duplicates."],
+    promptGuidelines: [
+      "Use wiki_search to find existing pages before creating duplicates.",
+    ],
     parameters: Type.Object({
       query: Type.String({ description: "Search term" }),
       type: Type.Optional(Type.String({ description: "Filter by page type" })),
@@ -771,15 +876,21 @@ export function registerWikiSearch(pi: ExtensionAPI): void {
             String(entry.title).toLowerCase().includes(q) ||
             String(entry.type).toLowerCase().includes(q);
           const matchesType =
-            !params.type || String(entry.type).toLowerCase() === params.type.toLowerCase();
+            !params.type ||
+            String(entry.type).toLowerCase() === params.type.toLowerCase();
           return matchesQuery && matchesType;
         })
         .map(([id, entry]) => ({ id, title: entry.title, type: entry.type }));
 
       if (matches.length === 0) {
         return {
-          content: [{ type: "text", text: `No pages found for "${params.query}"` }],
-          details: { query: params.query, matches: [] } as Record<string, unknown>,
+          content: [
+            { type: "text", text: `No pages found for "${params.query}"` },
+          ],
+          details: { query: params.query, matches: [] } as Record<
+            string,
+            unknown
+          >,
         };
       }
 
@@ -815,7 +926,10 @@ export function registerWikiLint(pi: ExtensionAPI, runtime?: Runtime): void {
     ],
     parameters: Type.Object({
       auto_fix: Type.Optional(
-        Type.Boolean({ description: "Auto-fix orphans and missing pages", default: false }),
+        Type.Boolean({
+          description: "Auto-fix orphans and missing pages",
+          default: false,
+        }),
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -896,8 +1010,12 @@ function runWikiLint(paths: VaultPaths, autoFix: boolean): string {
   if (autoFix) {
     for (const gap of gaps) {
       if (gap.mentionedBy.length >= 2) {
-        const folder = gap.topic.includes("/") ? gap.topic.split("/")[0] : "concepts";
-        const name = gap.topic.includes("/") ? gap.topic.split("/").pop()! : gap.topic;
+        const folder = gap.topic.includes("/")
+          ? gap.topic.split("/")[0]
+          : "concepts";
+        const name = gap.topic.includes("/")
+          ? gap.topic.split("/").pop()!
+          : gap.topic;
         const pagePath = join(paths.wiki, folder, `${name}.md`);
         mkdirSync(join(paths.wiki, folder), { recursive: true });
         try {
@@ -934,7 +1052,9 @@ function runWikiLint(paths: VaultPaths, autoFix: boolean): string {
     autoFix ? `- Fixes applied: ${fixesApplied}` : "",
     "",
     "## Findings",
-    findings.length > 0 ? findings.map((f) => `- ${f}`).join("\n") : "✅ No issues found!",
+    findings.length > 0
+      ? findings.map((f) => `- ${f}`).join("\n")
+      : "✅ No issues found!",
     "",
   ].filter(Boolean);
 
@@ -974,7 +1094,8 @@ export function registerWikiStatus(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "wiki_status",
     label: "Wiki Status",
-    description: "Report wiki health and stats instantly from generated registry.",
+    description:
+      "Report wiki health and stats instantly from generated registry.",
     promptSnippet: "Report wiki health and stats",
     promptGuidelines: ["Use wiki_status for a quick overview."],
     parameters: Type.Object({}),
@@ -994,8 +1115,14 @@ export function registerWikiStatus(pi: ExtensionAPI): void {
         last_updated: "",
         pages: {},
       });
-      const backlinks = readJson<Record<string, string[]>>(join(paths.meta, "backlinks.json"), {});
-      const config = readJson<Record<string, unknown>>(join(paths.dotWiki, "config.json"), {});
+      const backlinks = readJson<Record<string, string[]>>(
+        join(paths.meta, "backlinks.json"),
+        {},
+      );
+      const config = readJson<Record<string, unknown>>(
+        join(paths.dotWiki, "config.json"),
+        {},
+      );
 
       const byType: Record<string, number> = {};
       for (const entry of Object.values(registry.pages)) {
@@ -1005,9 +1132,12 @@ export function registerWikiStatus(pi: ExtensionAPI): void {
       const orphanCount = Object.entries(backlinks).filter(
         ([, inbound]) => inbound.length === 0,
       ).length;
-      const gaps = readJson<{ gaps?: unknown[] }>(join(paths.discoveries, "gaps.json"), {
-        gaps: [],
-      });
+      const gaps = readJson<{ gaps?: unknown[] }>(
+        join(paths.discoveries, "gaps.json"),
+        {
+          gaps: [],
+        },
+      );
 
       const health =
         Object.keys(registry.pages).length === 0
@@ -1047,11 +1177,15 @@ export function registerWikiStatus(pi: ExtensionAPI): void {
 
 // ─── 8. wiki_rebuild_meta ───────────────────────────────
 
-export function registerWikiRebuildMeta(pi: ExtensionAPI, runtime?: Runtime): void {
+export function registerWikiRebuildMeta(
+  pi: ExtensionAPI,
+  runtime?: Runtime,
+): void {
   pi.registerTool({
     name: "wiki_rebuild_meta",
     label: "Wiki Rebuild Meta",
-    description: "Force a full metadata rebuild (registry, backlinks, index, log).",
+    description:
+      "Force a full metadata rebuild (registry, backlinks, index, log).",
     promptSnippet: "Rebuild all wiki metadata",
     promptGuidelines: ["Use wiki_rebuild_meta if metadata seems out of sync."],
     parameters: Type.Object({}),
@@ -1075,11 +1209,14 @@ export function registerWikiRebuildMeta(pi: ExtensionAPI, runtime?: Runtime): vo
         work: async () => {
           rebuildMetadata(paths);
           appendEvent(paths, { kind: "rebuild_meta" });
-          const registry = readJson<Registry>(join(paths.meta, "registry.json"), {
-            version: "1.0",
-            last_updated: "",
-            pages: {},
-          });
+          const registry = readJson<Registry>(
+            join(paths.meta, "registry.json"),
+            {
+              version: "1.0",
+              last_updated: "",
+              pages: {},
+            },
+          );
           return `✅ LLM Wiki: metadata rebuilt — ${Object.keys(registry.pages).length} pages indexed.`;
         },
       });
@@ -1089,7 +1226,10 @@ export function registerWikiRebuildMeta(pi: ExtensionAPI, runtime?: Runtime): vo
 
 // ─── 9. wiki_log_event ──────────────────────────────────
 
-export function registerWikiReindexEmbeddings(pi: ExtensionAPI, runtime?: Runtime): void {
+export function registerWikiReindexEmbeddings(
+  pi: ExtensionAPI,
+  runtime?: Runtime,
+): void {
   pi.registerTool({
     name: "wiki_reindex_embeddings",
     label: "Wiki Reindex Embeddings",
@@ -1104,7 +1244,10 @@ export function registerWikiReindexEmbeddings(pi: ExtensionAPI, runtime?: Runtim
     ],
     parameters: Type.Object({
       force: Type.Optional(
-        Type.Boolean({ description: "Re-embed every page, ignoring staleness (default: false)" }),
+        Type.Boolean({
+          description:
+            "Re-embed every page, ignoring staleness (default: false)",
+        }),
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -1139,7 +1282,9 @@ export function registerWikiReindexEmbeddings(pi: ExtensionAPI, runtime?: Runtim
         started: `\u{1F9E0} LLM Wiki: embedding reindex started in the background (${embedder.model}) — stats will be reported when it completes.`,
         details: { enabled: true, model: embedder.model },
         work: async () => {
-          const stats = await reindexEmbeddings(paths, embedder, { force: params.force === true });
+          const stats = await reindexEmbeddings(paths, embedder, {
+            force: params.force === true,
+          });
           appendEvent(paths, {
             kind: "reindex_embeddings",
             embedded: stats.embedded,
@@ -1158,12 +1303,19 @@ export function registerWikiLogEvent(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "wiki_log_event",
     label: "Wiki Log Event",
-    description: "Append a structured event to meta/events.jsonl and regenerate meta/log.md.",
+    description:
+      "Append a structured event to meta/events.jsonl and regenerate meta/log.md.",
     promptSnippet: "Log an event to the wiki activity log",
-    promptGuidelines: ["Use wiki_log_event to record significant actions manually."],
+    promptGuidelines: [
+      "Use wiki_log_event to record significant actions manually.",
+    ],
     parameters: Type.Object({
-      kind: Type.String({ description: "Event kind (e.g., ingest, query, decision)" }),
-      details: Type.Optional(Type.Object({}, { description: "Additional event fields" })),
+      kind: Type.String({
+        description: "Event kind (e.g., ingest, query, decision)",
+      }),
+      details: Type.Optional(
+        Type.Object({}, { description: "Additional event fields" }),
+      ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const paths = getPaths(ctx.cwd);

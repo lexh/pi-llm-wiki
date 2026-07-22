@@ -274,7 +274,8 @@ function nextSequentialId(dir: string, kind: string): string {
 /** Parse a small, dependency-free YAML scalar/inline-array value. */
 function parseFrontmatterValue(raw: string, unquote = false): unknown {
   const trimmed = raw.trim();
-  const unquoted = (value: string) => value.replace(/^(["'])(.*)\1$/, "$2").trim();
+  const unquoted = (value: string) =>
+    value.replace(/^(["'])(.*)\1$/, "$2").trim();
 
   if (!trimmed) return "";
 
@@ -333,7 +334,8 @@ export function parseFrontmatter(content: string): {
 export function findWikiPages(
   wikiDir: string,
 ): Array<{ path: string; relative: string; content: string }> {
-  const results: Array<{ path: string; relative: string; content: string }> = [];
+  const results: Array<{ path: string; relative: string; content: string }> =
+    [];
 
   function walk(dir: string, rel: string) {
     if (!existsSync(dir)) return;
@@ -394,6 +396,53 @@ export async function exec(
   return result;
 }
 
+/**
+ * Validate a URL before fetching it as a remote source. Enforces an http/https
+ * scheme allowlist (blocks file:, gopher:, dict:, ftp:, data:, ...) and refuses
+ * loopback / link-local hosts (blocks localhost SSRF and the cloud-metadata
+ * endpoint 169.254.169.254). Throws on rejection.
+ *
+ * This does NOT defeat DNS-based SSRF (a public hostname that resolves to a
+ * private address). RFC1918 private ranges are intentionally allowed so
+ * intranet sources remain capturable.
+ */
+export function assertFetchableUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Refusing to capture invalid URL: ${url}`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    const scheme = parsed.protocol.replace(/:$/, "");
+    throw new Error(
+      `Refusing to fetch non-HTTP(S) URL (scheme "${scheme}"). Only http and https are allowed.`,
+    );
+  }
+  if (isBlockedHost(parsed.hostname)) {
+    throw new Error(
+      `Refusing to fetch loopback/link-local address: ${parsed.hostname}`,
+    );
+  }
+}
+
+/** Loopback / link-local host check (defense-in-depth against SSRF). */
+function isBlockedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+  if (host === "::1" || host === "::") return true; // IPv6 loopback / unspecified
+  if (/^fe[89ab]/.test(host)) return true; // IPv6 link-local fe80::/10
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const a = Number(ipv4[1]);
+    const b = Number(ipv4[2]);
+    if (a === 127) return true; // loopback 127.0.0.0/8
+    if (a === 0) return true; // 0.0.0.0/8
+    if (a === 169 && b === 254) return true; // link-local incl. 169.254.169.254 metadata
+  }
+  return false;
+}
+
 /** Check if a path is inside a protected directory. */
 export function isProtectedPath(
   absPath: string,
@@ -406,13 +455,15 @@ export function isProtectedPath(
   if (norm.startsWith(`${rawPath}/`) || norm === rawPath) {
     return {
       protected: true,
-      reason: "Raw sources are immutable. Use wiki_capture_source to add sources.",
+      reason:
+        "Raw sources are immutable. Use wiki_capture_source to add sources.",
     };
   }
   if (norm.startsWith(`${metaPath}/`) || norm === metaPath) {
     return {
       protected: true,
-      reason: "Metadata is auto-generated. Use wiki_rebuild_meta or wiki_log_event instead.",
+      reason:
+        "Metadata is auto-generated. Use wiki_rebuild_meta or wiki_log_event instead.",
     };
   }
 

@@ -9,7 +9,15 @@ import {
   extractUrlContent,
   fileExtractorFor,
 } from "./source-extractors.js";
-import { type VaultPaths, exec, fmtDate, nextSourceId, readText, writeJson } from "./utils.js";
+import {
+  type VaultPaths,
+  assertFetchableUrl,
+  exec,
+  fmtDate,
+  nextSourceId,
+  readText,
+  writeJson,
+} from "./utils.js";
 
 /**
  * Source packet capture and management.
@@ -43,7 +51,15 @@ interface CaptureSource {
   event(content: ExtractedContent): Record<string, unknown>;
 }
 
-const URL_ORIGINAL_EXTENSIONS = new Set([".html", ".htm", ".md", ".pdf", ".txt", ".xml", ".json"]);
+const URL_ORIGINAL_EXTENSIONS = new Set([
+  ".html",
+  ".htm",
+  ".md",
+  ".pdf",
+  ".txt",
+  ".xml",
+  ".json",
+]);
 
 /** Capture a URL into a source packet. */
 export async function captureUrl(
@@ -52,6 +68,10 @@ export async function captureUrl(
   url: string,
   signal?: AbortSignal,
 ): Promise<CaptureResult> {
+  // Reject non-HTTP(S) and loopback/link-local URLs before any fetch, so a
+  // file:// (local file read) or metadata (169.254.169.254) URL never reaches
+  // markitdown or curl and no packet is created for it.
+  assertFetchableUrl(url);
   return captureSource(paths, urlCaptureSource(pi, url, signal));
 }
 
@@ -66,28 +86,43 @@ export async function captureFile(
 }
 
 /** Capture pasted text into a source packet. */
-export function captureText(paths: VaultPaths, text: string, title?: string): CaptureResult {
+export function captureText(
+  paths: VaultPaths,
+  text: string,
+  title?: string,
+): CaptureResult {
   return captureSourceSync(paths, textCaptureSource(text, title));
 }
 
-async function captureSource(paths: VaultPaths, source: CaptureSource): Promise<CaptureResult> {
+async function captureSource(
+  paths: VaultPaths,
+  source: CaptureSource,
+): Promise<CaptureResult> {
   const packet = createSourcePacket(paths, source.needsOriginalDir);
   await source.preserveOriginal?.(packet.packetPath);
   const content = await source.extract();
   return finalizeCapture(paths, packet, source, content);
 }
 
-function captureSourceSync(paths: VaultPaths, source: CaptureSource): CaptureResult {
+function captureSourceSync(
+  paths: VaultPaths,
+  source: CaptureSource,
+): CaptureResult {
   const packet = createSourcePacket(paths, source.needsOriginalDir);
   const content = source.extract() as ExtractedContent;
   return finalizeCapture(paths, packet, source, content);
 }
 
-function urlCaptureSource(pi: ExtensionAPI, url: string, signal?: AbortSignal): CaptureSource {
+function urlCaptureSource(
+  pi: ExtensionAPI,
+  url: string,
+  signal?: AbortSignal,
+): CaptureSource {
   return {
     needsOriginalDir: true,
     fallbackText: contentExtractionFailureMessage(url),
-    preserveOriginal: (packetPath) => preserveUrlOriginal(pi, packetPath, url, signal),
+    preserveOriginal: (packetPath) =>
+      preserveUrlOriginal(pi, packetPath, url, signal),
     extract: () => extractUrlContent(pi, url, signal),
     manifest: (content) => ({
       title: content.title || url,
@@ -125,13 +160,22 @@ function fileCaptureSource(
         }
       }
 
-      const extractedStr = await extractor.extract({ pi, filePath, content, signal });
+      const extractedStr = await extractor.extract({
+        pi,
+        filePath,
+        content,
+        signal,
+      });
       const failed = extractedStr.includes("could not be converted");
       return {
         extracted: extractedStr,
         extractor: extractor.extractorName ?? "passthrough",
-        extraction_status: (failed ? "failed" : "success") as "failed" | "success",
-        ...(extractor.content_type ? { content_type: extractor.content_type } : {}),
+        extraction_status: (failed ? "failed" : "success") as
+          | "failed"
+          | "success",
+        ...(extractor.content_type
+          ? { content_type: extractor.content_type }
+          : {}),
       };
     },
     manifest: () => ({
@@ -156,12 +200,16 @@ function textCaptureSource(text: string, title?: string): CaptureSource {
   };
 }
 
-function createSourcePacket(paths: VaultPaths, needsOriginalDir: boolean): SourcePacket {
+function createSourcePacket(
+  paths: VaultPaths,
+  needsOriginalDir: boolean,
+): SourcePacket {
   const sourceId = nextSourceId(paths);
   const packetPath = join(paths.rawSources, sourceId);
   mkdirSync(packetPath, { recursive: true });
   mkdirSync(join(packetPath, "attachments"), { recursive: true });
-  if (needsOriginalDir) mkdirSync(join(packetPath, "original"), { recursive: true });
+  if (needsOriginalDir)
+    mkdirSync(join(packetPath, "original"), { recursive: true });
   return { sourceId, packetPath };
 }
 
@@ -186,7 +234,11 @@ function finalizeCapture(
   writeJson(join(packet.packetPath, "manifest.json"), manifest);
 
   const sourcePagePath = join(paths.wiki, "sources", `${packet.sourceId}.md`);
-  writeFileSync(sourcePagePath, buildSourcePageSkeleton(manifest, extracted), "utf-8");
+  writeFileSync(
+    sourcePagePath,
+    buildSourcePageSkeleton(manifest, extracted),
+    "utf-8",
+  );
 
   appendEvent(paths, {
     kind: "capture",
@@ -211,10 +263,16 @@ async function preserveFileOriginal(
   signal?: AbortSignal,
 ): Promise<void> {
   try {
-    await exec(pi, "cp", [filePath, join(packetPath, "original", fileName)], { signal });
+    await exec(pi, "cp", [filePath, join(packetPath, "original", fileName)], {
+      signal,
+    });
   } catch {
     // If cp fails, preserve whatever text content was available.
-    writeFileSync(join(packetPath, "original", fileName), fallbackContent, "utf-8");
+    writeFileSync(
+      join(packetPath, "original", fileName),
+      fallbackContent,
+      "utf-8",
+    );
   }
 }
 
@@ -224,12 +282,31 @@ async function preserveUrlOriginal(
   url: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  const originalPath = join(packetPath, "original", originalFileNameForUrl(url));
+  const originalPath = join(
+    packetPath,
+    "original",
+    originalFileNameForUrl(url),
+  );
   try {
-    await exec(pi, "curl", ["-sL", "--max-time", "30", "-o", originalPath, url], {
-      signal,
-      timeout: 35_000,
-    });
+    await exec(
+      pi,
+      "curl",
+      // Same http/https transport pin as fetchTextUrl; the URL is also
+      // pre-validated by assertFetchableUrl in captureUrl.
+      [
+        "-sL",
+        "--proto",
+        "-all,http,https",
+        "--proto-redir",
+        "-all,http,https",
+        "--max-time",
+        "30",
+        "-o",
+        originalPath,
+        url,
+      ],
+      { signal, timeout: 35_000 },
+    );
   } catch {
     // Preserve best-effort extraction behavior even when the original artifact cannot be saved.
   }
@@ -254,10 +331,15 @@ function contentExtractionFailureMessage(source: string): string {
 }
 
 /** Build a skeleton source page from manifest and extracted text. */
-function buildSourcePageSkeleton(manifest: Record<string, unknown>, extracted: string): string {
+function buildSourcePageSkeleton(
+  manifest: Record<string, unknown>,
+  extracted: string,
+): string {
   const id = String(manifest.id);
   const title = String(manifest.title || id);
-  const url = manifest.url ? `\n> _Original: [${manifest.url}](${manifest.url})_` : "";
+  const url = manifest.url
+    ? `\n> _Original: [${manifest.url}](${manifest.url})_`
+    : "";
   const format = String(manifest.format || "unknown");
   const captured = String(manifest.captured || fmtDate());
 

@@ -8,7 +8,9 @@ const __dname =
     ? __dirname
     : typeof import.meta !== "undefined" && import.meta.dirname
       ? import.meta.dirname
-      : dirname(fileURLToPath(__fname || `file://${process.cwd()}/test/dummy.ts`));
+      : dirname(
+          fileURLToPath(__fname || `file://${process.cwd()}/test/dummy.ts`),
+        );
 
 export const rootDir = resolve(__dname, "..");
 
@@ -40,12 +42,18 @@ export function createWikiRoot(baseDir: string): string {
   return dir;
 }
 
-export function createConfig(dir: string, overrides: Record<string, unknown> = {}) {
+export function createConfig(
+  dir: string,
+  overrides: Record<string, unknown> = {},
+) {
   const defaults: Record<string, unknown> = {
     wiki: { mode: "personal", topic: "Test Topic" },
     change_detection: false,
   };
-  const config = { ...defaults, ...overrides } as Record<string, Record<string, unknown>>;
+  const config = { ...defaults, ...overrides } as Record<
+    string,
+    Record<string, unknown>
+  >;
   const mode = config.wiki?.mode || "personal";
   const topic = config.wiki?.topic || "Test Topic";
   writeFileSync(
@@ -58,7 +66,12 @@ export function createSourceFile(dir: string, name: string, content: string) {
   writeFileSync(join(dir, ".llm-wiki", "raw", "articles", name), content);
 }
 
-export function createWikiPage(dir: string, subdir: string | "", name: string, content: string) {
+export function createWikiPage(
+  dir: string,
+  subdir: string | "",
+  name: string,
+  content: string,
+) {
   const target = subdir
     ? join(dir, ".llm-wiki", "wiki", subdir, name)
     : join(dir, ".llm-wiki", "wiki", name);
@@ -69,10 +82,12 @@ export function createWikiPage(dir: string, subdir: string | "", name: string, c
 export function mockPiWithMarkItDown(markdownOutput: string) {
   return {
     exec: async (command: string, args: string[]) => {
-      if (command === "sh") {
-        const cmd = args[1] ?? "";
-        if (cmd.includes("which uvx")) return { stdout: "yes\n", stderr: "", code: 0 };
-        if (cmd.includes("markitdown")) return { stdout: markdownOutput, stderr: "", code: 0 };
+      // hasMarkItDown -> `which uvx` (present); extract -> `uvx ... markitdown <src>`.
+      if (command === "which" && args[0] === "uvx") {
+        return { stdout: "/usr/bin/uvx\n", stderr: "", code: 0 };
+      }
+      if (command === "uvx" && args.includes("markitdown")) {
+        return { stdout: markdownOutput, stderr: "", code: 0 };
       }
       if (command === "cp") return { stdout: "", stderr: "", code: 0 };
       throw new Error(`Unexpected command: ${command}`);
@@ -81,10 +96,12 @@ export function mockPiWithMarkItDown(markdownOutput: string) {
 }
 
 export function mockPi(stdout?: string, writeOriginal = true) {
-  const html = "<html><head><title>Example Page</title></head><body>Hello</body></html>";
+  const html =
+    "<html><head><title>Example Page</title></head><body>Hello</body></html>";
   return {
     exec: async (command: string, args: string[]) => {
-      if (command === "sh") return { stdout: "no\n", stderr: "", code: 0 };
+      // markitdown unavailable: `which uvx` fails, so extraction falls to curl.
+      if (command === "which") return { stdout: "", stderr: "", code: 1 };
       if (command === "curl" && args.includes("-o")) {
         if (writeOriginal) {
           const outputPath = args[args.indexOf("-o") + 1];
@@ -92,7 +109,8 @@ export function mockPi(stdout?: string, writeOriginal = true) {
         }
         return { stdout: "", stderr: "", code: 0 };
       }
-      if (command === "curl") return { stdout: stdout ?? html, stderr: "", code: 0 };
+      if (command === "curl")
+        return { stdout: stdout ?? html, stderr: "", code: 0 };
       throw new Error(`Unexpected command: ${command}`);
     },
   };

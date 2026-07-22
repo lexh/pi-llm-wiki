@@ -76,7 +76,9 @@ const BINARY_SIGNATURES: Array<{ bytes: number[]; format: string }> = [
  * Reads the first 8 bytes of `filePath` and checks them against known binary
  * magic byte signatures. Returns the detected format name or `null` for text.
  */
-export async function detectBinaryMagicBytes(filePath: string): Promise<string | null> {
+export async function detectBinaryMagicBytes(
+  filePath: string,
+): Promise<string | null> {
   let handle: import("node:fs/promises").FileHandle | undefined;
   try {
     handle = await open(filePath, "r");
@@ -136,7 +138,8 @@ const FILE_EXTRACTORS: FileExtractor[] = [
     format: "docx",
     shouldReadText: false,
     extractorName: "markitdown",
-    content_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    content_type:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     matches: hasExtension(".docx"),
     extract: ({ pi, filePath, signal }) => extractDocx(pi, filePath, signal),
   },
@@ -156,7 +159,8 @@ const URL_EXTRACTORS: UrlExtractor[] = [
 
 export function fileExtractorFor(filePath: string): FileExtractor {
   return (
-    FILE_EXTRACTORS.find((extractor) => extractor.matches(filePath)) ?? FILE_EXTRACTORS.at(-1)!
+    FILE_EXTRACTORS.find((extractor) => extractor.matches(filePath)) ??
+    FILE_EXTRACTORS.at(-1)!
   );
 }
 
@@ -166,7 +170,8 @@ export function extractUrlContent(
   signal?: AbortSignal,
 ): Promise<ExtractedContent> {
   const extractor =
-    URL_EXTRACTORS.find((candidate) => candidate.matches(url)) ?? URL_EXTRACTORS.at(-1)!;
+    URL_EXTRACTORS.find((candidate) => candidate.matches(url)) ??
+    URL_EXTRACTORS.at(-1)!;
   return extractor.extract({ pi, url, signal });
 }
 
@@ -194,10 +199,15 @@ function hasExtension(extension: string): (path: string) => boolean {
 }
 
 function hasAnyExtension(extensions: string[]): (path: string) => boolean {
-  return (path) => extensions.some((extension) => hasExtension(extension)(path));
+  return (path) =>
+    extensions.some((extension) => hasExtension(extension)(path));
 }
 
-async function extractPdf(pi: ExtensionAPI, source: string, signal?: AbortSignal): Promise<string> {
+async function extractPdf(
+  pi: ExtensionAPI,
+  source: string,
+  signal?: AbortSignal,
+): Promise<string> {
   const extracted = await extractWithMarkItDown(pi, source, signal);
   return extracted || pdfExtractionFailureMessage(source);
 }
@@ -247,7 +257,8 @@ async function extractTextUrl(
   }
 
   const curlExtracted = await fetchTextUrl(pi, url, signal);
-  if (!curlExtracted) return { extracted: "", extractor: "none", extraction_status: "failed" };
+  if (!curlExtracted)
+    return { extracted: "", extractor: "none", extraction_status: "failed" };
   if (looksLikePdf(curlExtracted)) {
     return {
       extracted: pdfExtractionFailureMessage(url),
@@ -273,10 +284,15 @@ async function extractWithMarkItDown(
   if (!(await hasMarkItDown(pi, signal))) return "";
 
   try {
+    // Run uvx/markitdown directly (no shell). `source` is a URL or file path
+    // that can be attacker-influenced (e.g. via /wiki-discover or a poisoned
+    // page), so it is passed as a discrete argv element and can never be
+    // interpreted as shell syntax. The previous `sh -c "... \"${source}\""`
+    // form allowed command injection via a crafted name/URL.
     const mdResult = await exec(
       pi,
-      "sh",
-      ["-c", `uvx --from 'markitdown[docx,pdf]' markitdown "${source}" 2>/dev/null || echo ""`],
+      "uvx",
+      ["--from", "markitdown[docx,pdf]", "markitdown", source],
       { signal, timeout: markitdownTimeoutMs() },
     );
     return mdResult.stdout.trim() ? mdResult.stdout : "";
@@ -285,22 +301,40 @@ async function extractWithMarkItDown(
   }
 }
 
-async function hasMarkItDown(pi: ExtensionAPI, signal?: AbortSignal): Promise<boolean> {
-  const markitdown = await exec(
-    pi,
-    "sh",
-    ["-c", `which uvx >/dev/null 2>&1 && echo "yes" || echo "no"`],
-    { signal },
-  );
-  return markitdown.stdout.trim() === "yes";
+async function hasMarkItDown(
+  pi: ExtensionAPI,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  // Presence check without a shell: `which uvx` exits 0 only when found.
+  try {
+    const result = await exec(pi, "which", ["uvx"], { signal });
+    return result.code === 0;
+  } catch {
+    return false;
+  }
 }
 
-async function fetchTextUrl(pi: ExtensionAPI, url: string, signal?: AbortSignal): Promise<string> {
+async function fetchTextUrl(
+  pi: ExtensionAPI,
+  url: string,
+  signal?: AbortSignal,
+): Promise<string> {
   try {
     const curlResult = await exec(
       pi,
       "curl",
-      ["-sL", "--max-time", String(DEFAULT_CURL_TIMEOUT_SECONDS), url],
+      // --proto/--proto-redir pin the transport to http/https even across
+      // redirects, so a redirect cannot smuggle file:, gopher:, dict:, etc.
+      [
+        "-sL",
+        "--proto",
+        "-all,http,https",
+        "--proto-redir",
+        "-all,http,https",
+        "--max-time",
+        String(DEFAULT_CURL_TIMEOUT_SECONDS),
+        url,
+      ],
       {
         signal,
         timeout: (DEFAULT_CURL_TIMEOUT_SECONDS + 5) * 1_000,
@@ -313,7 +347,10 @@ async function fetchTextUrl(pi: ExtensionAPI, url: string, signal?: AbortSignal)
 }
 
 function markitdownTimeoutMs(): number {
-  return positiveIntegerFromEnv("WIKI_MARKITDOWN_TIMEOUT_MS", DEFAULT_MARKITDOWN_TIMEOUT_MS);
+  return positiveIntegerFromEnv(
+    "WIKI_MARKITDOWN_TIMEOUT_MS",
+    DEFAULT_MARKITDOWN_TIMEOUT_MS,
+  );
 }
 
 function positiveIntegerFromEnv(name: string, fallback: number): number {
@@ -355,7 +392,8 @@ function decodeHtmlEntities(text: string): string {
     };
     const lower = entity.toLowerCase();
     if (map[lower]) return map[lower];
-    if (lower.startsWith("&#")) return String.fromCodePoint(Number.parseInt(entity.slice(2, -1)));
+    if (lower.startsWith("&#"))
+      return String.fromCodePoint(Number.parseInt(entity.slice(2, -1)));
     return entity;
   });
 }
@@ -368,7 +406,10 @@ function xmlToMarkdown(xml: string): string {
 
   let text = xml.replace(/<\?xml[^>]*\?>\s*/gi, "");
   text = text.replace(/<!DOCTYPE[^>]*>\s*/gi, "");
-  text = text.replace(/<\/(p|div|section|article|li|h\d|tr|blockquote|pre)>/gi, "\n");
+  text = text.replace(
+    /<\/(p|div|section|article|li|h\d|tr|blockquote|pre)>/gi,
+    "\n",
+  );
   text = text.replace(/<br\s*\/?>/gi, "\n");
 
   let prev = "";
@@ -408,7 +449,10 @@ export function htmlToMarkdown(input: string): string {
   let previousHtml = "";
   while (previousHtml !== html) {
     previousHtml = html;
-    html = html.replace(/<(script|style|nav|header|footer|noscript)[\s\S]*?<\/\1>/gi, "");
+    html = html.replace(
+      /<(script|style|nav|header|footer|noscript)[\s\S]*?<\/\1>/gi,
+      "",
+    );
   }
 
   // 3. Delegate to node-html-markdown for full semantic conversion
@@ -447,7 +491,8 @@ function titleFromValue(value: unknown): string | undefined {
   if (!isRecord(value)) return undefined;
   for (const key of ["title", "name", "id"]) {
     const candidate = value[key];
-    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+    if (typeof candidate === "string" && candidate.trim())
+      return candidate.trim();
   }
   return undefined;
 }
@@ -456,7 +501,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function renderJsonValue(value: unknown, lines: string[], depth: number, label?: string): void {
+function renderJsonValue(
+  value: unknown,
+  lines: string[],
+  depth: number,
+  label?: string,
+): void {
   if (Array.isArray(value)) {
     renderJsonArray(value, lines, depth, label);
     return;
@@ -467,7 +517,10 @@ function renderJsonValue(value: unknown, lines: string[], depth: number, label?:
     return;
   }
 
-  if (label) lines.push(`${indent(depth)}- **${humanizeKey(label)}:** ${formatJsonScalar(value)}`);
+  if (label)
+    lines.push(
+      `${indent(depth)}- **${humanizeKey(label)}:** ${formatJsonScalar(value)}`,
+    );
   else lines.push(`${indent(depth)}- ${formatJsonScalar(value)}`);
 }
 
@@ -486,13 +539,20 @@ function renderJsonObject(
       const childDepth = label ? depth + 1 : depth;
       renderJsonValue(value, lines, childDepth, key);
     } else {
-      lines.push(`${indent(depth)}- **${humanizeKey(key)}:** ${formatJsonScalar(value)}`);
+      lines.push(
+        `${indent(depth)}- **${humanizeKey(key)}:** ${formatJsonScalar(value)}`,
+      );
     }
   }
   lines.push("");
 }
 
-function renderJsonArray(array: unknown[], lines: string[], depth: number, label?: string): void {
+function renderJsonArray(
+  array: unknown[],
+  lines: string[],
+  depth: number,
+  label?: string,
+): void {
   if (label) lines.push(`${heading(depth)} ${humanizeKey(label)}`, "");
 
   if (array.length === 0) {
@@ -519,7 +579,8 @@ function renderJsonArray(array: unknown[], lines: string[], depth: number, label
 function formatJsonScalar(value: unknown): string {
   if (value === null) return "null";
   if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   return String(value);
 }
 
